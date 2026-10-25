@@ -14,6 +14,7 @@ import { HoursKpiCard } from './components/HoursKpiCard';
 import { TimerTracker } from './components/TimerTracker';
 import { TodoListCard } from './components/TodoListCard';
 import { CallaLilyModal } from './components/CallaLilyModal';
+import { ManualTimeModal } from './components/ManualTimeModal';
 import { AnalysisPage } from './components/AnalysisPage';
 import { TimesheetPage } from './components/TimesheetPage';
 import { SettingsPage } from './components/SettingsPage';
@@ -34,6 +35,9 @@ export function App() {
   // Calla Lily Blooming Gamification Modal State
   const [isCallaModalOpen, setIsCallaModalOpen] = useState<boolean>(false);
   const [completedTaskName, setCompletedTaskName] = useState<string>('');
+
+  // Manual Missed Time Modal State
+  const [isManualModalOpen, setIsManualModalOpen] = useState<boolean>(false);
 
   // Global Timer State (lifted up so switching tabs does NOT reset active timer!)
   const [activeSeconds, setActiveSeconds] = useState<number>(0);
@@ -332,6 +336,7 @@ export function App() {
                 categories={categories}
                 todos={todos}
                 onCompleteTodo={handleCompleteTodoFromTracker}
+                onOpenManualModal={() => setIsManualModalOpen(true)}
               />
 
               {/* HOMEPAGE TO-DO LIST FEATURE */}
@@ -406,6 +411,7 @@ export function App() {
               onDeleteSession={handleDeleteSession}
               currentUser={currentUser}
               categories={categories}
+              onOpenManualModal={() => setIsManualModalOpen(true)}
             />
           )}
 
@@ -451,6 +457,15 @@ export function App() {
         taskTitle={completedTaskName}
         remainingTasksCount={remainingTasksCount}
         userName={currentUser.name}
+      />
+
+      {/* MANUAL MISSED TIME MODAL */}
+      <ManualTimeModal
+        isOpen={isManualModalOpen}
+        onClose={() => setIsManualModalOpen(false)}
+        currentUser={currentUser}
+        categories={categories}
+        onAddSession={handleSessionComplete}
       />
     </div>
   );

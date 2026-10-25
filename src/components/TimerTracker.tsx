@@ -22,7 +22,8 @@ import {
   X,
   HelpCircle,
   Timer as TimerIcon,
-  Zap
+  Zap,
+  Clock
 } from 'lucide-react';
 import './TimerTracker.css';
 
@@ -43,6 +44,7 @@ interface TimerTrackerProps {
   categories: string[];
   todos: TodoItem[];
   onCompleteTodo: (todoId: string, taskTitle: string) => void;
+  onOpenManualModal: () => void;
 }
 
 type PomodoroMode = 'work' | 'shortBreak' | 'longBreak';
@@ -65,6 +67,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
   categories,
   todos,
   onCompleteTodo,
+  onOpenManualModal,
 }) => {
   // Preset: Standard (25m Focus / 5m Break) vs Long Focus (50m Focus / 10m Break)
   const [activePreset, setActivePreset] = useState<PomodoroPreset>('standard');
@@ -550,6 +553,18 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
                 <RotateCcw size={16} />
               </button>
             </>
+          )}
+
+          {!isRunning && activeSeconds === 0 && (
+            <button
+              type="button"
+              className="action-btn-secondary manual-entry-quick-btn"
+              onClick={onOpenManualModal}
+              title="Add time manually"
+            >
+              <Clock size={15} />
+              <span>+ Log Missed Time</span>
+            </button>
           )}
         </div>
 

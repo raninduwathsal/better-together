@@ -15,6 +15,7 @@ interface TimesheetPageProps {
   onDeleteSession: (id: string) => void;
   currentUser: UserProfile;
   categories: string[];
+  onOpenManualModal: () => void;
 }
 
 export const TimesheetPage: React.FC<TimesheetPageProps> = ({
@@ -22,6 +23,7 @@ export const TimesheetPage: React.FC<TimesheetPageProps> = ({
   onDeleteSession,
   currentUser,
   categories,
+  onOpenManualModal,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -102,10 +104,16 @@ export const TimesheetPage: React.FC<TimesheetPageProps> = ({
             Inspect past study records, durations, and task accomplishments. Clean records without unneeded reflection prompts.
           </p>
         </div>
-        <button className="export-btn" onClick={exportCSV}>
-          <Download size={16} />
-          <span>Export CSV</span>
-        </button>
+        <div className="timesheet-header-actions">
+          <button className="manual-time-trigger-btn" onClick={onOpenManualModal}>
+            <Clock size={16} />
+            <span>+ Log Missed Time</span>
+          </button>
+          <button className="export-btn" onClick={exportCSV}>
+            <Download size={16} />
+            <span>Export CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
