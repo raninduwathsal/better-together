@@ -102,6 +102,94 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
 
   const maxDayHours = Math.max(4, ...last7DaysData.map(d => d.hours));
 
+  // Selected date for hourly drilldown (default to today: 'YYYY-MM-DD')
+  const [selectedDrilldownDate, setSelectedDrilldownDate] = React.useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
+
+  // Hourly distribution for the selected day (24 buckets: 00:00 to 23:00)
+  const hourlyDayBreakdown = useMemo(() => {
+    const buckets: { hour: number; label: string; minutes: number; sessions: TimeSession[] }[] = [];
+    for (let h = 0; h < 24; h++) {
+      buckets.push({
+        hour: h,
+        label: `${h.toString().padStart(2, '0')}:00`,
+        minutes: 0,
+        sessions: []
+      });
+    }
+
+    // Parse the selected day's boundaries in local time
+    const [y, m, d] = selectedDrilldownDate.split('-').map(Number);
+    const dayStart = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+    const dayEnd = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+
+    // Find sessions that overlap with this day
+    const daySessions = userSessions.filter(s => {
+      const sStart = s.startTime;
+      const sEnd = s.endTime || (s.startTime + s.durationSeconds * 1000);
+      return sStart <= dayEnd && sEnd >= dayStart;
+    });
+
+    // Populate each hour bucket
+    daySessions.forEach(session => {
+      const sStart = session.startTime;
+      const sEnd = session.endTime || (session.startTime + session.durationSeconds * 1000);
+
+      for (let h = 0; h < 24; h++) {
+        const bucketStart = new Date(y, m - 1, d, h, 0, 0, 0).getTime();
+        const bucketEnd = new Date(y, m - 1, d, h + 1, 0, 0, 0).getTime();
+
+        const overlapStart = Math.max(sStart, bucketStart);
+        const overlapEnd = Math.min(sEnd, bucketEnd);
+
+        if (overlapEnd > overlapStart) {
+          const overlapMins = Math.round((overlapEnd - overlapStart) / (1000 * 60));
+          buckets[h].minutes = Math.min(60, buckets[h].minutes + overlapMins);
+          if (!buckets[h].sessions.some(s => s.id === session.id)) {
+            buckets[h].sessions.push(session);
+          }
+        }
+      }
+    });
+
+    return buckets;
+  }, [userSessions, selectedDrilldownDate]);
+
+  // Overall 24-hour heatmap (cumulative study frequency by hour across all sessions)
+  const cumulativeHourlyHeatmap = useMemo(() => {
+    const hourCounts = new Array(24).fill(0);
+    userSessions.forEach(s => {
+      const date = new Date(s.startTime);
+      const startHour = date.getHours();
+      const durationHours = Math.max(1, Math.round(s.durationSeconds / 3600));
+      for (let i = 0; i < durationHours; i++) {
+        const h = (startHour + i) % 24;
+        hourCounts[h] += 1;
+      }
+    });
+    const maxVal = Math.max(1, ...hourCounts);
+    return hourCounts.map((count, hour) => ({
+      hour,
+      label: `${hour.toString().padStart(2, '0')}:00`,
+      count,
+      intensity: count / maxVal
+    }));
+  }, [userSessions]);
+
+  // Peak productivity hour calculation
+  const peakHour = useMemo(() => {
+    let best = 0;
+    let bestHour = 9;
+    cumulativeHourlyHeatmap.forEach(item => {
+      if (item.count > best) {
+        best = item.count;
+        bestHour = item.hour;
+      }
+    });
+    return `${bestHour.toString().padStart(2, '0')}:00 - ${(bestHour + 1).toString().padStart(2, '0')}:00`;
+  }, [cumulativeHourlyHeatmap]);
+
   return (
     <div className="analysis-page">
       {/* Header */}
@@ -274,6 +362,142 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
 
       </div>
 
+      {/* 24-Hour Daily Timesheet Drilldown (BladeGen inspired) */}
+      <div className="chart-card drilldown-card">
+        <div className="drilldown-header">
+          <div>
+            <div className="drilldown-badge">
+              <Clock size={14} className="text-purple" />
+              <span>Timesheet Hourly Breakdown</span>
+            </div>
+            <h3 className="chart-title" style={{ marginTop: '0.35rem' }}>
+              Hour-by-Hour Activity Drilldown
+            </h3>
+            <p className="chart-desc">
+              Inspect exactly how many minutes you studied in each hour of the day
+            </p>
+          </div>
+
+          <div className="drilldown-date-picker-wrap">
+            <span className="picker-label">Select Day:</span>
+            <input 
+              type="date"
+              className="drilldown-date-input font-mono"
+              value={selectedDrilldownDate}
+              onChange={(e) => setSelectedDrilldownDate(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* 24 Hour Bar Graph */}
+        <div className="hourly-bars-grid">
+          {hourlyDayBreakdown.map((bucket) => {
+            const hasActivity = bucket.minutes > 0;
+            const heightPercent = Math.min(100, Math.max(bucket.minutes > 0 ? 12 : 3, (bucket.minutes / 60) * 100));
+
+            return (
+              <div 
+                key={bucket.hour} 
+                className={`hourly-bar-col ${hasActivity ? 'has-data' : ''}`}
+                title={`${bucket.label} - ${bucket.minutes} min studied (${bucket.sessions.length} sessions)`}
+              >
+                <div className="hourly-bar-tooltip">
+                  <span className="tooltip-mins">{bucket.minutes}m</span>
+                  <span className="tooltip-time">{bucket.label}</span>
+                </div>
+                <div className="hourly-bar-track">
+                  <div 
+                    className="hourly-bar-fill"
+                    style={{ height: `${heightPercent}%` }}
+                  />
+                </div>
+                <span className="hourly-bar-label font-mono">
+                  {bucket.hour % 3 === 0 ? bucket.label.split(':')[0] : ''}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Active sessions list for this selected day */}
+        <div className="drilldown-day-sessions">
+          <div className="drilldown-sessions-header">
+            <span className="sessions-header-title">
+              Sessions Logged on {new Date(selectedDrilldownDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
+            </span>
+            <span className="sessions-count-badge font-mono">
+              {hourlyDayBreakdown.reduce((sum, b) => sum + b.minutes, 0)} mins total
+            </span>
+          </div>
+
+          {hourlyDayBreakdown.some(b => b.minutes > 0) ? (
+            <div className="drilldown-chips-row">
+              {Array.from(new Set(hourlyDayBreakdown.flatMap(b => b.sessions))).map(session => (
+                <div key={session.id} className="drilldown-session-chip">
+                  <span className="chip-cat-dot" />
+                  <span className="chip-name">{session.workingOn}</span>
+                  <span className="chip-time font-mono">
+                    {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {session.endTime ? ` - ${new Date(session.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  </span>
+                  <span className="chip-duration font-mono">
+                    {Math.round(session.durationSeconds / 60)}m
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-drilldown-msg">
+              No time tracked on this date. Use the "+ Log Missed Time" button or start the timer to log hours!
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 24-Hour Lifetime Study Distribution Heatmap */}
+      <div className="chart-card heatmap-card">
+        <div className="chart-card-header">
+          <div>
+            <h3 className="chart-title">Peak Productivity Hours (Lifetime Heatmap)</h3>
+            <p className="chart-desc">
+              Your overall peak study window is typically around <strong className="text-purple">{peakHour}</strong>
+            </p>
+          </div>
+          <Flame size={18} className="text-pink" />
+        </div>
+
+        <div className="heatmap-row">
+          {cumulativeHourlyHeatmap.map(cell => {
+            const alpha = Math.max(0.08, cell.intensity);
+            return (
+              <div 
+                key={cell.hour} 
+                className="heatmap-cell"
+                title={`${cell.label}: ${cell.count} study sessions`}
+              >
+                <div 
+                  className="heatmap-cell-inner"
+                  style={{
+                    backgroundColor: `rgba(124, 58, 237, ${cell.count > 0 ? alpha : 0.05})`,
+                    border: cell.count > 0 ? '1px solid rgba(124, 58, 237, 0.4)' : '1px solid var(--border-light)'
+                  }}
+                >
+                  <span className="heatmap-cell-val font-mono">{cell.count > 0 ? cell.count : ''}</span>
+                </div>
+                <span className="heatmap-cell-hour font-mono">
+                  {cell.hour % 2 === 0 ? cell.hour : ''}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="heatmap-legend">
+          <span className="legend-label">Less active</span>
+          <div className="heatmap-legend-gradient" />
+          <span className="legend-label">Peak focus</span>
+        </div>
+      </div>
+
       {/* Clean-Room Key Highlights */}
       <div className="insights-panel">
         <h4 className="insights-title">
@@ -282,9 +506,9 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
         </h4>
         <p className="insights-body">
           {categoryStats.length === 0 ? (
-            <>No study sessions recorded yet for <strong>{currentUser.name}</strong>. Start your first session from the Tracker tab to begin generating live cloud analytics!</>
+            <>No study sessions recorded yet for <strong>{currentUser.name}</strong>. Start your first session from the Tracker tab or use "+ Log Missed Time" to begin generating live cloud analytics!</>
           ) : (
-            <>Sessions are logged friction-free without intrusive prompts. Your highest output is in <strong>{categoryStats[0]?.name}</strong>, accounting for <strong>{categoryStats[0]?.percentage}%</strong> of total focus volume.</>
+            <>Sessions are logged friction-free without intrusive prompts. Your highest output is in <strong>{categoryStats[0]?.name}</strong>, accounting for <strong>{categoryStats[0]?.percentage}%</strong> of total focus volume with peak focus between <strong>{peakHour}</strong>.</>
           )}
         </p>
       </div>
