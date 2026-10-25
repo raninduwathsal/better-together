@@ -1,0 +1,191 @@
+.calla-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(24, 17, 38, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.calla-modal-card {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  max-width: 440px;
+  width: 100%;
+  padding: 2.25rem 2rem 2rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 1px solid var(--border-light);
+  box-shadow: 0 25px 60px -15px rgba(124, 58, 237, 0.35);
+  animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.calla-close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calla-close-btn:hover {
+  color: var(--text-main);
+  background: var(--primary-100);
+}
+
+.calla-sparkle-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  border: 1px solid var(--primary-200);
+  color: var(--primary-700);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.3rem 0.85rem;
+  border-radius: var(--radius-full);
+  margin-bottom: 0.5rem;
+}
+
+.calla-flower-stage {
+  width: 200px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0.25rem 0 1rem;
+}
+
+.calla-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Blooming Animation Stages */
+.calla-svg.stage-0 {
+  transform: scale(0.4) rotate(-8deg);
+  opacity: 0.3;
+}
+
+.calla-svg.stage-1 {
+  transform: scale(0.85) rotate(-3deg);
+  opacity: 0.85;
+}
+
+.calla-svg.stage-2 {
+  transform: scale(1.05) rotate(0deg);
+  opacity: 1;
+}
+
+.calla-svg .stem-path {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 0;
+  animation: growStem 1.2s ease-out;
+}
+
+.calla-svg .petal-main,
+.calla-svg .petal-curl {
+  transform-origin: 120px 175px;
+  animation: bloomPetals 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.calla-svg .calla-spadix {
+  transform-origin: 120px 150px;
+  animation: riseSpadix 1.2s ease-out;
+}
+
+@keyframes growStem {
+  from { stroke-dashoffset: 200; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes bloomPetals {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(0.9); opacity: 0.9; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes riseSpadix {
+  0% { transform: scaleY(0.2); }
+  100% { transform: scaleY(1); }
+}
+
+.calla-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.calla-title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+}
+
+.calla-task-name {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.calla-status-box {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--primary-50);
+  border: 1px solid var(--primary-200);
+  border-radius: var(--radius-full);
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  color: var(--primary-800);
+  margin: 0.5rem 0 1.25rem;
+}
+
+.calla-continue-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--accent-gradient);
+  color: #ffffff;
+  padding: 0.85rem 1.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.95rem;
+  font-weight: 700;
+  box-shadow: 0 10px 25px -4px rgba(124, 58, 237, 0.4);
+}
+
+.calla-continue-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -4px rgba(124, 58, 237, 0.5);
+}
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
