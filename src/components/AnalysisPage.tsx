@@ -18,6 +18,41 @@ interface AnalysisPageProps {
   currentUser: UserProfile;
 }
 
+// Category Color Palette matching user preference:
+// Study: Green (#10B981)
+// Club: Purple (#8B5CF6 / #7C3AED)
+// Entertainment: Red/Coral (#EF4444)
+// Work: Royal Blue (#3B82F6)
+// Sleep: Indigo (#6366F1)
+export const CATEGORY_COLORS: Record<string, string> = {
+  'Study': '#10B981',         // Green
+  'Club': '#8B5CF6',          // Purple
+  'Entertainment': '#EF4444', // Red
+  'Work': '#3B82F6',          // Blue
+  'Sleep': '#6366F1',         // Indigo
+  'Deep Work': '#059669',     // Emerald
+  'Other': '#94A3B8',         // Slate
+};
+
+export const getCategoryColor = (category: string): string => {
+  return CATEGORY_COLORS[category] || '#A855F7';
+};
+
+interface HourSegment {
+  category: string;
+  minutes: number;
+  color: string;
+  sessionTitle: string;
+}
+
+interface HourBucket {
+  hour: number;
+  label: string;
+  totalMinutes: number;
+  segments: HourSegment[];
+  sessions: TimeSession[];
+}
+
 export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUser }) => {
   // Filter sessions for the active user
   const userSessions = useMemo(() => {
@@ -46,16 +81,6 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
       map[s.category] = (map[s.category] || 0) + s.durationSeconds;
     });
 
-    const colors: Record<string, string> = {
-      'Study': '#7C3AED',         // Deep Purple
-      'Work': '#9333EA',          // Vibrant Purple
-      'Club': '#C084FC',          // Light Lavender
-      'Entertainment': '#EC4899', // Pink
-      'Sleep': '#6366F1',         // Indigo
-      'Deep Work': '#7C3AED',
-      'Other': '#CBD5E1',
-    };
-
     const entries = Object.entries(map).map(([name, seconds]) => {
       const hours = (seconds / 3600).toFixed(1);
       const percentage = totalSecondsAllTime > 0 
@@ -66,7 +91,7 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
         seconds,
         hours,
         percentage,
-        color: colors[name] || '#8B5CF6'
+        color: getCategoryColor(name)
       };
     });
 
@@ -107,14 +132,15 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
     new Date().toISOString().split('T')[0]
   );
 
-  // Hourly distribution for the selected day (24 buckets: 00:00 to 23:00)
-  const hourlyDayBreakdown = useMemo(() => {
-    const buckets: { hour: number; label: string; minutes: number; sessions: TimeSession[] }[] = [];
+  // Hourly distribution for the selected day with STACKED category segments (24 buckets: 00:00 to 23:00)
+  const hourlyDayBreakdown = useMemo<HourBucket[]>(() => {
+    const buckets: HourBucket[] = [];
     for (let h = 0; h < 24; h++) {
       buckets.push({
         hour: h,
         label: `${h.toString().padStart(2, '0')}:00`,
-        minutes: 0,
+        totalMinutes: 0,
+        segments: [],
         sessions: []
       });
     }
@@ -131,7 +157,7 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
       return sStart <= dayEnd && sEnd >= dayStart;
     });
 
-    // Populate each hour bucket
+    // Populate each hour bucket with stacked category slices
     daySessions.forEach(session => {
       const sStart = session.startTime;
       const sEnd = session.endTime || (session.startTime + session.durationSeconds * 1000);
@@ -145,9 +171,25 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
 
         if (overlapEnd > overlapStart) {
           const overlapMins = Math.round((overlapEnd - overlapStart) / (1000 * 60));
-          buckets[h].minutes = Math.min(60, buckets[h].minutes + overlapMins);
-          if (!buckets[h].sessions.some(s => s.id === session.id)) {
-            buckets[h].sessions.push(session);
+          if (overlapMins > 0) {
+            buckets[h].totalMinutes = Math.min(60, buckets[h].totalMinutes + overlapMins);
+            
+            // Add or merge segment for this category
+            const existingSeg = buckets[h].segments.find(seg => seg.category === session.category);
+            if (existingSeg) {
+              existingSeg.minutes = Math.min(60, existingSeg.minutes + overlapMins);
+            } else {
+              buckets[h].segments.push({
+                category: session.category,
+                minutes: overlapMins,
+                color: getCategoryColor(session.category),
+                sessionTitle: session.workingOn
+              });
+            }
+
+            if (!buckets[h].sessions.some(s => s.id === session.id)) {
+              buckets[h].sessions.push(session);
+            }
           }
         }
       }
@@ -389,34 +431,89 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
           </div>
         </div>
 
-        {/* 24 Hour Bar Graph */}
+        {/* 24 Hour Stacked Bar Graph */}
         <div className="hourly-bars-grid">
           {hourlyDayBreakdown.map((bucket) => {
-            const hasActivity = bucket.minutes > 0;
-            const heightPercent = Math.min(100, Math.max(bucket.minutes > 0 ? 12 : 3, (bucket.minutes / 60) * 100));
+            const hasActivity = bucket.totalMinutes > 0;
 
             return (
               <div 
                 key={bucket.hour} 
                 className={`hourly-bar-col ${hasActivity ? 'has-data' : ''}`}
-                title={`${bucket.label} - ${bucket.minutes} min studied (${bucket.sessions.length} sessions)`}
               >
+                {/* Multi-category detailed tooltip */}
                 <div className="hourly-bar-tooltip">
-                  <span className="tooltip-mins">{bucket.minutes}m</span>
-                  <span className="tooltip-time">{bucket.label}</span>
+                  <span className="tooltip-time font-mono">{bucket.label}</span>
+                  <span className="tooltip-mins font-mono">{bucket.totalMinutes}m logged</span>
+                  {bucket.segments.length > 0 && (
+                    <div className="tooltip-segments-list">
+                      {bucket.segments.map(seg => (
+                        <div key={seg.category} className="tooltip-seg-item">
+                          <span className="tooltip-dot" style={{ backgroundColor: seg.color }} />
+                          <span className="tooltip-seg-cat">{seg.category}:</span>
+                          <span className="tooltip-seg-val font-mono">{seg.minutes}m</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
+                {/* Stacked Bar Track */}
                 <div className="hourly-bar-track">
-                  <div 
-                    className="hourly-bar-fill"
-                    style={{ height: `${heightPercent}%` }}
-                  />
+                  {hasActivity ? (
+                    <div className="stacked-bar-container">
+                      {bucket.segments.map((seg, sIdx) => {
+                        // Calculate percentage of the 60-minute hour
+                        const segmentHeightPct = (seg.minutes / 60) * 100;
+                        return (
+                          <div 
+                            key={sIdx}
+                            className="stacked-bar-slice"
+                            style={{
+                              height: `${segmentHeightPct}%`,
+                              backgroundColor: seg.color,
+                            }}
+                            title={`${seg.category}: ${seg.minutes} min`}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </div>
+
                 <span className="hourly-bar-label font-mono">
                   {bucket.hour % 3 === 0 ? bucket.label.split(':')[0] : ''}
                 </span>
               </div>
             );
           })}
+        </div>
+
+        {/* Dynamic Category Color Legend */}
+        <div className="drilldown-category-legend">
+          <div className="legend-label-title">Categories:</div>
+          <div className="legend-chips-list">
+            <span className="legend-tag-pill">
+              <span className="tag-dot" style={{ backgroundColor: CATEGORY_COLORS['Study'] }} />
+              <span>Study ({CATEGORY_COLORS['Study'] === '#10B981' ? 'Green' : ''})</span>
+            </span>
+            <span className="legend-tag-pill">
+              <span className="tag-dot" style={{ backgroundColor: CATEGORY_COLORS['Club'] }} />
+              <span>Club ({CATEGORY_COLORS['Club'] === '#8B5CF6' ? 'Purple' : ''})</span>
+            </span>
+            <span className="legend-tag-pill">
+              <span className="tag-dot" style={{ backgroundColor: CATEGORY_COLORS['Entertainment'] }} />
+              <span>Entertainment ({CATEGORY_COLORS['Entertainment'] === '#EF4444' ? 'Red' : ''})</span>
+            </span>
+            <span className="legend-tag-pill">
+              <span className="tag-dot" style={{ backgroundColor: CATEGORY_COLORS['Work'] }} />
+              <span>Work (Blue)</span>
+            </span>
+            <span className="legend-tag-pill">
+              <span className="tag-dot" style={{ backgroundColor: CATEGORY_COLORS['Sleep'] }} />
+              <span>Sleep (Indigo)</span>
+            </span>
+          </div>
         </div>
 
         {/* Active sessions list for this selected day */}
@@ -426,16 +523,29 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
               Sessions Logged on {new Date(selectedDrilldownDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
             </span>
             <span className="sessions-count-badge font-mono">
-              {hourlyDayBreakdown.reduce((sum, b) => sum + b.minutes, 0)} mins total
+              {hourlyDayBreakdown.reduce((sum, b) => sum + b.totalMinutes, 0)} mins total
             </span>
           </div>
 
-          {hourlyDayBreakdown.some(b => b.minutes > 0) ? (
+          {hourlyDayBreakdown.some(b => b.totalMinutes > 0) ? (
             <div className="drilldown-chips-row">
               {Array.from(new Set(hourlyDayBreakdown.flatMap(b => b.sessions))).map(session => (
                 <div key={session.id} className="drilldown-session-chip">
-                  <span className="chip-cat-dot" />
+                  <span 
+                    className="chip-cat-dot" 
+                    style={{ backgroundColor: getCategoryColor(session.category) }} 
+                  />
                   <span className="chip-name">{session.workingOn}</span>
+                  <span 
+                    className="chip-category-badge"
+                    style={{ 
+                      color: getCategoryColor(session.category),
+                      backgroundColor: `${getCategoryColor(session.category)}18`,
+                      borderColor: `${getCategoryColor(session.category)}40`
+                    }}
+                  >
+                    {session.category}
+                  </span>
                   <span className="chip-time font-mono">
                     {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     {session.endTime ? ` - ${new Date(session.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}

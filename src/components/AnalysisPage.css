@@ -438,34 +438,72 @@
 
 .hourly-bar-tooltip {
   position: absolute;
-  top: -38px;
+  top: -55px;
   left: 50%;
   transform: translateX(-50%) translateY(0);
   background: #181126;
   color: #ffffff;
-  padding: 0.25rem 0.5rem;
+  padding: 0.35rem 0.65rem;
   border-radius: var(--radius-sm);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
   transition: all 0.2s ease;
-  z-index: 10;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  min-width: 90px;
 }
 
 .tooltip-mins {
   font-weight: 800;
-  color: var(--primary-300);
+  color: #ffffff;
 }
 
 .tooltip-time {
-  font-size: 0.62rem;
+  font-size: 0.65rem;
+  color: var(--primary-300);
+  font-weight: 700;
+}
+
+.tooltip-segments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding-top: 3px;
+  width: 100%;
+}
+
+.tooltip-seg-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 0.65rem;
+}
+
+.tooltip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tooltip-seg-cat {
   color: #cbd5e1;
+  flex: 1;
+  text-align: left;
+}
+
+.tooltip-seg-val {
+  font-weight: 700;
+  color: #ffffff;
 }
 
 .hourly-bar-track {
@@ -476,18 +514,31 @@
   display: flex;
   align-items: flex-end;
   overflow: hidden;
+  border: 1px solid var(--border-light);
 }
 
-.hourly-bar-fill {
+.stacked-bar-container {
   width: 100%;
-  background: var(--primary-200);
-  border-radius: 4px 4px 0 0;
-  transition: height 0.4s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  align-items: stretch;
 }
 
-.hourly-bar-col.has-data .hourly-bar-fill {
-  background: var(--accent-gradient);
-  box-shadow: 0 0 10px rgba(124, 58, 237, 0.35);
+.stacked-bar-slice {
+  width: 100%;
+  transition: height 0.3s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.stacked-bar-slice:first-child {
+  border-bottom: none;
+}
+
+.hourly-bar-col.has-data .hourly-bar-track {
+  border-color: rgba(124, 58, 237, 0.25);
+  box-shadow: 0 0 10px rgba(124, 58, 237, 0.15);
 }
 
 .hourly-bar-label {
@@ -496,6 +547,51 @@
   color: var(--text-muted);
   margin-top: 0.4rem;
   height: 14px;
+}
+
+/* Category Legend for Drilldown */
+.drilldown-category-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 0.5rem 0.25rem;
+  border-bottom: 1px dashed var(--border-light);
+  margin-bottom: 1rem;
+}
+
+.legend-label-title {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.legend-chips-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.legend-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.legend-tag-pill .tag-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
 .drilldown-day-sessions {
@@ -557,6 +653,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.chip-category-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  border: 1px solid;
 }
 
 .chip-time {
