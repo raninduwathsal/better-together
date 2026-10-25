@@ -1,12 +1,12 @@
 import type { UserProfile, TimeSession, PomodoroSettings, TodoItem } from './types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
-const USERS_KEY = 'better_together_users';
-const ACTIVE_USER_ID_KEY = 'better_together_active_user_id';
-const SESSIONS_KEY = 'better_together_sessions';
-const POMODORO_SETTINGS_KEY = 'better_together_pomodoro_settings';
-const CATEGORIES_KEY = 'better_together_categories';
-const TODOS_KEY = 'better_together_todos';
+const USERS_KEY = 'better_together_users_v3';
+const ACTIVE_USER_ID_KEY = 'better_together_active_user_id_v3';
+const SESSIONS_KEY = 'better_together_sessions_v3';
+const POMODORO_SETTINGS_KEY = 'better_together_pomodoro_settings_v3';
+const CATEGORIES_KEY = 'better_together_categories_v3';
+const TODOS_KEY = 'better_together_todos_v3';
 
 export const DEFAULT_CATEGORIES: string[] = [
   'Sleep',
@@ -33,41 +33,7 @@ export const DEFAULT_USERS: UserProfile[] = [
   }
 ];
 
-export const DEFAULT_TODOS: TodoItem[] = [
-  {
-    id: 'todo_1',
-    userId: 'user_savithmi',
-    title: 'Complete Distributed Systems Raft Summary',
-    category: 'Study',
-    completed: false,
-    createdAt: Date.now() - 3600000 * 5,
-  },
-  {
-    id: 'todo_2',
-    userId: 'user_savithmi',
-    title: 'Prepare slides for IEEE Club Meeting',
-    category: 'Club',
-    completed: false,
-    createdAt: Date.now() - 3600000 * 3,
-  },
-  {
-    id: 'todo_3',
-    userId: 'user_ranindu',
-    title: 'Implement Calla Lily Bloom Animation',
-    category: 'Work',
-    completed: true,
-    createdAt: Date.now() - 3600000 * 6,
-    completedAt: Date.now() - 3600000 * 1,
-  },
-  {
-    id: 'todo_4',
-    userId: 'user_ranindu',
-    title: 'Review PR & Deploy to Vercel',
-    category: 'Work',
-    completed: false,
-    createdAt: Date.now() - 3600000 * 2,
-  }
-];
+export const DEFAULT_TODOS: TodoItem[] = [];
 
 export const DEFAULT_POMODORO: PomodoroSettings = {
   workMinutes: 25,
@@ -79,69 +45,7 @@ export const DEFAULT_POMODORO: PomodoroSettings = {
 };
 
 export const getInitialSessions = (): TimeSession[] => {
-  const now = Date.now();
-  const dayMs = 86400000;
-  
-  return [
-    {
-      id: 'sess_1',
-      userId: 'user_savithmi',
-      userName: 'Savithmi',
-      workingOn: 'Advanced Algorithms & Dynamic Programming',
-      category: 'Study',
-      startTime: now - 3600 * 1000 * 4,
-      endTime: now - 3600 * 1000 * 2.5,
-      durationSeconds: 5400,
-      isPomodoro: true,
-      pomodoroCyclesCompleted: 3,
-      notes: 'Covered memoization and graph DAG traversal',
-    },
-    {
-      id: 'sess_2',
-      userId: 'user_savithmi',
-      userName: 'Savithmi',
-      workingOn: 'IEEE Student Branch Weekly Standup',
-      category: 'Club',
-      startTime: now - 3600 * 1000 * 2,
-      endTime: now - 3600 * 1000 * 0.8,
-      durationSeconds: 4320,
-      isPomodoro: false,
-      notes: 'Organized upcoming tech symposium workshop',
-    },
-    {
-      id: 'sess_3',
-      userId: 'user_savithmi',
-      userName: 'Savithmi',
-      workingOn: 'Deep Rest & Recharge',
-      category: 'Sleep',
-      startTime: now - dayMs - 3600 * 1000 * 8,
-      endTime: now - dayMs - 3600 * 1000 * 1,
-      durationSeconds: 25200,
-      isPomodoro: false,
-    },
-    {
-      id: 'sess_4',
-      userId: 'user_ranindu',
-      userName: 'Ranindu',
-      workingOn: 'React Architecture Implementation & Client PR',
-      category: 'Work',
-      startTime: now - dayMs * 2 - 3600 * 1000 * 5,
-      endTime: now - dayMs * 2 - 3600 * 1000 * 2.5,
-      durationSeconds: 9000,
-      isPomodoro: false,
-    },
-    {
-      id: 'sess_5',
-      userId: 'user_ranindu',
-      userName: 'Ranindu',
-      workingOn: 'Movie Night & Gaming Chill',
-      category: 'Entertainment',
-      startTime: now - dayMs * 3 - 3600 * 1000 * 4,
-      endTime: now - dayMs * 3 - 3600 * 1000 * 2,
-      durationSeconds: 7200,
-      isPomodoro: false,
-    }
-  ];
+  return [];
 };
 
 export const storage = {

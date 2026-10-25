@@ -281,7 +281,11 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
           <span>Productivity Insight & Reflection</span>
         </h4>
         <p className="insights-body">
-          Sessions are logged friction-free without intrusive prompts. Your highest output is in <strong>{categoryStats[0]?.name || 'Deep Work'}</strong>, accounting for <strong>{categoryStats[0]?.percentage || 0}%</strong> of total study volume.
+          {categoryStats.length === 0 ? (
+            <>No study sessions recorded yet for <strong>{currentUser.name}</strong>. Start your first session from the Tracker tab to begin generating live cloud analytics!</>
+          ) : (
+            <>Sessions are logged friction-free without intrusive prompts. Your highest output is in <strong>{categoryStats[0]?.name}</strong>, accounting for <strong>{categoryStats[0]?.percentage}%</strong> of total focus volume.</>
+          )}
         </p>
       </div>
     </div>
