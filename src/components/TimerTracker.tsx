@@ -6,6 +6,7 @@ import type {
   PomodoroSettings,
   TodoItem
 } from '../types';
+import { storage } from '../storage';
 import { playSound } from '../audio';
 import confetti from 'canvas-confetti';
 import { 
@@ -192,6 +193,31 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
     }
   };
 
+  // Keep active timer state persisted to localStorage while running
+  useEffect(() => {
+    if (isRunning) {
+      storage.saveActiveTimer({
+        isRunning: true,
+        startedAt: sessionStartTimeRef.current,
+        accumulatedSeconds: activeSeconds,
+        workingOn,
+        category,
+        isPomodoroEnabled,
+        selectedTodoId,
+      });
+    } else if (activeSeconds > 0) {
+      storage.saveActiveTimer({
+        isRunning: false,
+        startedAt: null,
+        accumulatedSeconds: activeSeconds,
+        workingOn,
+        category,
+        isPomodoroEnabled,
+        selectedTodoId,
+      });
+    }
+  }, [isRunning, activeSeconds, workingOn, category, isPomodoroEnabled, selectedTodoId]);
+
   const handleStartBreakNow = () => {
     setShowBreakPrompt(false);
     playSound('start');
@@ -206,17 +232,34 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
   };
 
   const handleStart = () => {
-    if (activeSeconds === 0) {
-      sessionStartTimeRef.current = Date.now();
-    }
+    // If starting fresh or resuming
+    sessionStartTimeRef.current = Date.now() - (activeSeconds * 1000);
     setIsDropdownOpen(false);
     playSound('start');
     setIsRunning(true);
+    storage.saveActiveTimer({
+      isRunning: true,
+      startedAt: sessionStartTimeRef.current,
+      accumulatedSeconds: activeSeconds,
+      workingOn,
+      category,
+      isPomodoroEnabled,
+      selectedTodoId,
+    });
   };
 
   const handlePause = () => {
     playSound('pause');
     setIsRunning(false);
+    storage.saveActiveTimer({
+      isRunning: false,
+      startedAt: null,
+      accumulatedSeconds: activeSeconds,
+      workingOn,
+      category,
+      isPomodoroEnabled,
+      selectedTodoId,
+    });
   };
 
   const handleReset = () => {
@@ -224,6 +267,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
     setActiveSeconds(0);
     setSelectedTodoId(null);
     setShowBreakPrompt(false);
+    storage.clearActiveTimer();
     if (isPomodoroEnabled) {
       setPomodoroMode('work');
       setPomodoroTimeRemaining(currentWorkMinutes * 60);
@@ -272,6 +316,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
       onCompleteTodo(session.todoId, session.workingOn);
     }
 
+    storage.clearActiveTimer();
     setShowMarkDoneDialog(false);
     setPendingSavedSession(null);
     setShowBreakPrompt(false);

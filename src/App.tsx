@@ -70,6 +70,27 @@ export function App() {
       setCategory(loadedCats[0] || 'Study');
     }
 
+    // 1b. Restore persistent active timer (survives browser refresh, disconnection, navigation)
+    const savedTimer = storage.getActiveTimer();
+    if (savedTimer) {
+      if (savedTimer.workingOn) setWorkingOn(savedTimer.workingOn);
+      if (savedTimer.category && loadedCats.includes(savedTimer.category)) {
+        setCategory(savedTimer.category);
+      }
+      setIsPomodoroEnabled(Boolean(savedTimer.isPomodoroEnabled));
+
+      if (savedTimer.isRunning && savedTimer.startedAt) {
+        // Calculate seconds elapsed while tab/browser was disconnected or closed!
+        const elapsedSinceStart = Math.max(0, Math.floor((Date.now() - savedTimer.startedAt) / 1000));
+        const totalRestored = savedTimer.accumulatedSeconds + elapsedSinceStart;
+        setActiveSeconds(totalRestored);
+        setIsRunning(true);
+      } else {
+        setActiveSeconds(savedTimer.accumulatedSeconds || 0);
+        setIsRunning(false);
+      }
+    }
+
     // 2. Fetch from Supabase Cloud if configured
     if (isSupabaseConfigured) {
       storage.fetchCloudProfiles().then(cloudUsers => {
