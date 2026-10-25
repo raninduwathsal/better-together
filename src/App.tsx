@@ -94,30 +94,39 @@ export function App() {
     // 2. Fetch from Supabase Cloud if configured
     if (isSupabaseConfigured) {
       storage.fetchCloudProfiles().then(cloudUsers => {
-        if (cloudUsers && cloudUsers.length > 0) {
-          setUsers(cloudUsers);
-          storage.saveUsers(cloudUsers);
+        if (cloudUsers !== null) {
           setIsCloudSynced(true);
-        } else {
-          localUsers.forEach(u => storage.syncProfileToCloud(u));
+          if (cloudUsers.length > 0) {
+            setUsers(cloudUsers);
+            storage.saveUsers(cloudUsers);
+          } else {
+            localUsers.forEach(u => storage.syncProfileToCloud(u));
+          }
         }
       });
 
       storage.fetchCloudSessions().then(cloudSessions => {
-        if (cloudSessions && cloudSessions.length > 0) {
-          setSessions(cloudSessions);
-          storage.saveSessions(cloudSessions);
+        if (cloudSessions !== null) {
           setIsCloudSynced(true);
+          if (cloudSessions.length > 0) {
+            setSessions(cloudSessions);
+            storage.saveSessions(cloudSessions);
+          } else if (localSessions.length > 0) {
+            // Push existing local sessions to Supabase on first run
+            localSessions.forEach(s => storage.syncSessionToCloud(s));
+          }
         }
       });
 
       storage.fetchCloudTodos().then(cloudTodos => {
-        if (cloudTodos && cloudTodos.length > 0) {
-          setTodos(cloudTodos);
-          storage.saveTodos(cloudTodos);
+        if (cloudTodos !== null) {
           setIsCloudSynced(true);
-        } else {
-          localTodos.forEach(t => storage.syncTodoToCloud(t));
+          if (cloudTodos.length > 0) {
+            setTodos(cloudTodos);
+            storage.saveTodos(cloudTodos);
+          } else if (localTodos.length > 0) {
+            localTodos.forEach(t => storage.syncTodoToCloud(t));
+          }
         }
       });
 
