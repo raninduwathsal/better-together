@@ -193,7 +193,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
     }
   };
 
-  // Keep active timer state persisted to localStorage while running
+  // Keep active timer state persisted to localStorage and sync to Supabase live
   useEffect(() => {
     if (isRunning) {
       storage.saveActiveTimer({
@@ -205,6 +205,18 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
         isPomodoroEnabled,
         selectedTodoId,
       });
+
+      storage.syncActiveTimerToCloud({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        workingOn,
+        category,
+        startedAt: sessionStartTimeRef.current,
+        accumulatedSeconds: activeSeconds,
+        isRunning: true,
+        isPomodoro: isPomodoroEnabled,
+        updatedAt: Date.now()
+      });
     } else if (activeSeconds > 0) {
       storage.saveActiveTimer({
         isRunning: false,
@@ -215,8 +227,20 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
         isPomodoroEnabled,
         selectedTodoId,
       });
+
+      storage.syncActiveTimerToCloud({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        workingOn,
+        category,
+        startedAt: Date.now(),
+        accumulatedSeconds: activeSeconds,
+        isRunning: false,
+        isPomodoro: isPomodoroEnabled,
+        updatedAt: Date.now()
+      });
     }
-  }, [isRunning, activeSeconds, workingOn, category, isPomodoroEnabled, selectedTodoId]);
+  }, [isRunning, activeSeconds, workingOn, category, isPomodoroEnabled, selectedTodoId, currentUser]);
 
   const handleStartBreakNow = () => {
     setShowBreakPrompt(false);
@@ -268,6 +292,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
     setSelectedTodoId(null);
     setShowBreakPrompt(false);
     storage.clearActiveTimer();
+    storage.clearActiveTimerFromCloud(currentUser.id);
     if (isPomodoroEnabled) {
       setPomodoroMode('work');
       setPomodoroTimeRemaining(currentWorkMinutes * 60);
@@ -317,6 +342,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
     }
 
     storage.clearActiveTimer();
+    storage.clearActiveTimerFromCloud(currentUser.id);
     setShowMarkDoneDialog(false);
     setPendingSavedSession(null);
     setShowBreakPrompt(false);

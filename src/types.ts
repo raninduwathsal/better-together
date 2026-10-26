@@ -42,4 +42,16 @@ export interface PomodoroSettings {
   autoStartBreaks: boolean;
 }
 
+export interface ActiveTimerState {
+  userId: string;
+  userName: string;
+  workingOn: string;
+  category: string;
+  startedAt: number; // epoch ms when current run started
+  accumulatedSeconds: number; // seconds prior to current run
+  isRunning: boolean;
+  isPomodoro: boolean;
+  updatedAt: number;
+}
+
 export type TabType = 'timer' | 'analysis' | 'timesheet' | 'settings';

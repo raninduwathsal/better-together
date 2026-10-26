@@ -1,4 +1,4 @@
-import type { UserProfile, TimeSession, PomodoroSettings, TodoItem } from './types';
+import type { UserProfile, TimeSession, PomodoroSettings, TodoItem, ActiveTimerState } from './types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 const USERS_KEY = 'better_together_users_v3';
@@ -385,6 +385,57 @@ export const storage = {
       await supabase.from('sessions').delete().eq('id', id);
     } catch (e) {
       console.warn('Cloud delete error for session:', e);
+    }
+  },
+
+  // ---- LIVE ACTIVE TRACKING BROADCAST ----
+  async syncActiveTimerToCloud(activeState: ActiveTimerState) {
+    if (!isSupabaseConfigured) return;
+    try {
+      await supabase.from('active_timers').upsert({
+        user_id: activeState.userId,
+        user_name: activeState.userName,
+        working_on: activeState.workingOn,
+        category: activeState.category,
+        started_at: activeState.startedAt,
+        accumulated_seconds: activeState.accumulatedSeconds,
+        is_running: activeState.isRunning,
+        is_pomodoro: activeState.isPomodoro,
+        updated_at: Date.now()
+      });
+    } catch (e) {
+      console.warn('Cloud active_timers sync error:', e);
+    }
+  },
+
+  async clearActiveTimerFromCloud(userId: string) {
+    if (!isSupabaseConfigured) return;
+    try {
+      await supabase.from('active_timers').delete().eq('user_id', userId);
+    } catch (e) {
+      console.warn('Cloud active_timers clear error:', e);
+    }
+  },
+
+  async fetchCloudActiveTimers(): Promise<ActiveTimerState[] | null> {
+    if (!isSupabaseConfigured) return null;
+    try {
+      const { data, error } = await supabase.from('active_timers').select('*');
+      if (error || !data) return null;
+      return data.map(d => ({
+        userId: d.user_id,
+        userName: d.user_name,
+        workingOn: d.working_on || '',
+        category: d.category || 'Study',
+        startedAt: Number(d.started_at) || Date.now(),
+        accumulatedSeconds: Number(d.accumulated_seconds) || 0,
+        isRunning: Boolean(d.is_running),
+        isPomodoro: Boolean(d.is_pomodoro),
+        updatedAt: Number(d.updated_at) || Date.now()
+      }));
+    } catch (e) {
+      console.warn('Could not fetch active timers:', e);
+      return null;
     }
   }
 };

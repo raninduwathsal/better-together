@@ -5,7 +5,8 @@ import type {
   PomodoroSettings, 
   TabType, 
   SessionCategory,
-  TodoItem
+  TodoItem,
+  ActiveTimerState
 } from './types';
 import { storage } from './storage';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
@@ -13,6 +14,7 @@ import { Navbar } from './components/Navbar';
 import { HoursKpiCard } from './components/HoursKpiCard';
 import { TimerTracker } from './components/TimerTracker';
 import { TodoListCard } from './components/TodoListCard';
+import { PartnerActiveTrackerCard } from './components/PartnerActiveTrackerCard';
 import { CallaLilyModal } from './components/CallaLilyModal';
 import { ManualTimeModal } from './components/ManualTimeModal';
 import { AnalysisPage } from './components/AnalysisPage';
@@ -31,6 +33,7 @@ export function App() {
   const [pomodoroSettings, setPomodoroSettings] = useState<PomodoroSettings>(storage.getPomodoroSettings());
   const [categories, setCategories] = useState<string[]>(storage.getCategories());
   const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
+  const [activeTimers, setActiveTimers] = useState<ActiveTimerState[]>([]);
 
   // Calla Lily Blooming Gamification Modal State
   const [isCallaModalOpen, setIsCallaModalOpen] = useState<boolean>(false);
@@ -130,9 +133,26 @@ export function App() {
         }
       });
 
+      storage.fetchCloudActiveTimers().then(cloudTimers => {
+        if (cloudTimers !== null) {
+          setActiveTimers(cloudTimers);
+        }
+      });
+
       // 3. Subscribe to Real-Time Cloud Updates
       const channel = supabase
         .channel('better-together-realtime')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'active_timers' },
+          () => {
+            storage.fetchCloudActiveTimers().then(refreshed => {
+              if (refreshed) {
+                setActiveTimers(refreshed);
+              }
+            });
+          }
+        )
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'sessions' },
@@ -346,6 +366,13 @@ export function App() {
               <HoursKpiCard 
                 todaySeconds={totalTodayLiveSeconds}
                 userName={currentUser.name}
+              />
+
+              {/* LIVE PARTNER TRACKING BANNER (SHOWS IF SOMEONE ELSE IS CURRENTLY TRACKING) */}
+              <PartnerActiveTrackerCard
+                activeTimers={activeTimers}
+                currentUserId={currentUser.id}
+                users={users}
               />
 
               {/* CORE TIME TRACKER / POMODORO WITH AUTOCOMPLETE & COMPLETION DIALOG */}
