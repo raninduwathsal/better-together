@@ -269,7 +269,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
       category,
       isPomodoroEnabled,
       selectedTodoId,
-    });
+    }, currentUser.id);
   };
 
   const handlePause = () => {
@@ -283,7 +283,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
       category,
       isPomodoroEnabled,
       selectedTodoId,
-    });
+    }, currentUser.id);
   };
 
   const handleReset = () => {

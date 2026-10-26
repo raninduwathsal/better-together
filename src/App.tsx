@@ -135,6 +135,18 @@ export function App() {
       storage.fetchCloudActiveTimers().then(cloudTimers => {
         if (cloudTimers !== null) {
           setActiveTimers(cloudTimers);
+
+          // If the active user has a running timer in the cloud (started on another browser/device), resume it here!
+          const myCloudTimer = cloudTimers.find(t => t.userId === savedUserId && t.isRunning);
+          if (myCloudTimer && myCloudTimer.startedAt) {
+            const elapsed = Math.max(0, Math.floor((Date.now() - myCloudTimer.startedAt) / 1000));
+            const totalSecs = (myCloudTimer.accumulatedSeconds || 0) + elapsed;
+            setActiveSeconds(totalSecs);
+            setIsRunning(true);
+            if (myCloudTimer.workingOn) setWorkingOn(myCloudTimer.workingOn);
+            if (myCloudTimer.category) setCategory(myCloudTimer.category);
+            setIsPomodoroEnabled(Boolean(myCloudTimer.isPomodoro));
+          }
         }
       });
 
@@ -226,31 +238,44 @@ export function App() {
     setActiveUserId(nextUserId);
     storage.setActiveUserId(nextUserId);
 
-    // 3. Load target user's saved timer state
-    const savedTimer = storage.getActiveTimer(nextUserId);
-    if (savedTimer) {
-      setWorkingOn(savedTimer.workingOn || '');
-      if (savedTimer.category && categories.includes(savedTimer.category)) {
-        setCategory(savedTimer.category);
+    // 3. Load target user's saved timer state (checking live cloud active timers first so other devices sync!)
+    const cloudTimer = activeTimers.find(t => t.userId === nextUserId && t.isRunning);
+    if (cloudTimer && cloudTimer.startedAt) {
+      const elapsedSinceStart = Math.max(0, Math.floor((Date.now() - cloudTimer.startedAt) / 1000));
+      const totalRestored = (cloudTimer.accumulatedSeconds || 0) + elapsedSinceStart;
+      setWorkingOn(cloudTimer.workingOn || '');
+      if (cloudTimer.category && categories.includes(cloudTimer.category)) {
+        setCategory(cloudTimer.category);
       }
-      setIsPomodoroEnabled(Boolean(savedTimer.isPomodoroEnabled));
-
-      if (savedTimer.isRunning && savedTimer.startedAt) {
-        const elapsedSinceStart = Math.max(0, Math.floor((Date.now() - savedTimer.startedAt) / 1000));
-        const totalRestored = (savedTimer.accumulatedSeconds || 0) + elapsedSinceStart;
-        setActiveSeconds(totalRestored);
-        setIsRunning(true);
-      } else {
-        setActiveSeconds(savedTimer.accumulatedSeconds || 0);
-        setIsRunning(false);
-      }
+      setIsPomodoroEnabled(Boolean(cloudTimer.isPomodoro));
+      setActiveSeconds(totalRestored);
+      setIsRunning(true);
     } else {
-      // Clean slate for new user without saved active timer
-      setActiveSeconds(0);
-      setIsRunning(false);
-      setWorkingOn('');
-      setCategory(categories[0] || 'Study');
-      setIsPomodoroEnabled(false);
+      const savedTimer = storage.getActiveTimer(nextUserId);
+      if (savedTimer) {
+        setWorkingOn(savedTimer.workingOn || '');
+        if (savedTimer.category && categories.includes(savedTimer.category)) {
+          setCategory(savedTimer.category);
+        }
+        setIsPomodoroEnabled(Boolean(savedTimer.isPomodoroEnabled));
+
+        if (savedTimer.isRunning && savedTimer.startedAt) {
+          const elapsedSinceStart = Math.max(0, Math.floor((Date.now() - savedTimer.startedAt) / 1000));
+          const totalRestored = (savedTimer.accumulatedSeconds || 0) + elapsedSinceStart;
+          setActiveSeconds(totalRestored);
+          setIsRunning(true);
+        } else {
+          setActiveSeconds(savedTimer.accumulatedSeconds || 0);
+          setIsRunning(false);
+        }
+      } else {
+        // Clean slate for new user without saved active timer
+        setActiveSeconds(0);
+        setIsRunning(false);
+        setWorkingOn('');
+        setCategory(categories[0] || 'Study');
+        setIsPomodoroEnabled(false);
+      }
     }
   };
 
