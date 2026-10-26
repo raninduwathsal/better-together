@@ -129,32 +129,54 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
     }
   }, [currentWorkMinutes, currentBreakMinutes, pomodoroMode, isPomodoroEnabled, isRunning]);
 
-  // Main Timer Interval
+  // Main Timer Interval with wall-clock drift correction
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
 
-    if (isRunning) {
-      interval = setInterval(() => {
-        if (!isPomodoroEnabled || pomodoroMode === 'work') {
-          setActiveSeconds(prev => prev + 1);
-        }
+    const syncElapsedTime = () => {
+      if (!isRunning) return;
+      const trueElapsed = Math.max(0, Math.floor((Date.now() - sessionStartTimeRef.current) / 1000));
+      setActiveSeconds(trueElapsed);
 
-        if (isPomodoroEnabled) {
-          setPomodoroTimeRemaining(prev => {
-            if (prev <= 1) {
-              handlePomodoroIntervalComplete();
-              return 0;
-            }
-            return prev - 1;
-          });
+      if (isPomodoroEnabled) {
+        if (pomodoroMode === 'work') {
+          const remaining = Math.max(0, currentWorkMinutes * 60 - trueElapsed);
+          setPomodoroTimeRemaining(remaining);
+          if (remaining <= 0) {
+            handlePomodoroIntervalComplete();
+          }
         }
+      }
+    };
+
+    if (isRunning) {
+      // Sync immediately on run state
+      syncElapsedTime();
+
+      interval = setInterval(() => {
+        syncElapsedTime();
       }, 1000);
+
+      // Re-sync immediately when phone unlocks or user switches back to Safari tab
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          syncElapsedTime();
+        }
+      };
+      window.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', syncElapsedTime);
+
+      return () => {
+        if (interval) clearInterval(interval);
+        window.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', syncElapsedTime);
+      };
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRunning, isPomodoroEnabled, pomodoroMode, activePreset]);
+  }, [isRunning, isPomodoroEnabled, pomodoroMode, activePreset, currentWorkMinutes]);
 
   // AUTOMATIC STOP AND PROMPT BREAK WHEN FOCUS REACHES 0
   const handlePomodoroIntervalComplete = () => {
@@ -300,7 +322,13 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
   };
 
   const handleStopClick = () => {
-    if (activeSeconds < 5) {
+    const now = Date.now();
+    const wallClockSeconds = sessionStartTimeRef.current > 0 
+      ? Math.max(0, Math.floor((now - sessionStartTimeRef.current) / 1000))
+      : activeSeconds;
+    const finalDuration = Math.max(activeSeconds, wallClockSeconds);
+
+    if (finalDuration < 5) {
       handleReset();
       return;
     }
@@ -316,8 +344,8 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
       workingOn: workingOn.trim() || 'Untitled Session',
       category: category,
       startTime: sessionStartTimeRef.current,
-      endTime: Date.now(),
-      durationSeconds: activeSeconds,
+      endTime: now,
+      durationSeconds: finalDuration,
       isPomodoro: isPomodoroEnabled,
       pomodoroCyclesCompleted: pomodoroCycleCount,
       notes: sessionNotes.trim() || undefined,
