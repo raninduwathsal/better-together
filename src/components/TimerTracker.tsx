@@ -703,7 +703,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
                 onClick={() => finishAndCommitSession(pendingSavedSession, true)}
               >
                 <Check size={18} />
-                <span>Yes, Mark as Done (Bloom Calla Lily!)</span>
+                <span>Yes, Mark as Done</span>
               </button>
 
               <button 

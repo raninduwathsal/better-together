@@ -6,6 +6,12 @@ export interface UserProfile {
   createdAt: number;
 }
 
+export interface CategoryDefinition {
+  name: string;
+  color: string;
+  isProductive: boolean;
+}
+
 export type SessionCategory = string;
 
 export interface TodoItem {

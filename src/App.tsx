@@ -6,7 +6,8 @@ import type {
   TabType, 
   SessionCategory,
   TodoItem,
-  ActiveTimerState
+  ActiveTimerState,
+  CategoryDefinition
 } from './types';
 import { storage } from './storage';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
@@ -15,7 +16,6 @@ import { HoursKpiCard } from './components/HoursKpiCard';
 import { TimerTracker } from './components/TimerTracker';
 import { TodoListCard } from './components/TodoListCard';
 import { PartnerActiveTrackerCard } from './components/PartnerActiveTrackerCard';
-import { CallaLilyModal } from './components/CallaLilyModal';
 import { ManualTimeModal } from './components/ManualTimeModal';
 import { AnalysisPage } from './components/AnalysisPage';
 import { TimesheetPage } from './components/TimesheetPage';
@@ -32,12 +32,9 @@ export function App() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [pomodoroSettings, setPomodoroSettings] = useState<PomodoroSettings>(storage.getPomodoroSettings());
   const [categories, setCategories] = useState<string[]>(storage.getCategories());
+  const [categoryDefs, setCategoryDefs] = useState<CategoryDefinition[]>(storage.getCategoryDefinitions());
   const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
   const [activeTimers, setActiveTimers] = useState<ActiveTimerState[]>([]);
-
-  // Calla Lily Blooming Gamification Modal State
-  const [isCallaModalOpen, setIsCallaModalOpen] = useState<boolean>(false);
-  const [completedTaskName, setCompletedTaskName] = useState<string>('');
 
   // Manual Missed Time Modal State
   const [isManualModalOpen, setIsManualModalOpen] = useState<boolean>(false);
@@ -67,7 +64,9 @@ export function App() {
     const loadedPomo = storage.getPomodoroSettings();
     setPomodoroSettings(loadedPomo);
 
-    const loadedCats = storage.getCategories();
+    const loadedDefs = storage.getCategoryDefinitions();
+    setCategoryDefs(loadedDefs);
+    const loadedCats = loadedDefs.map(d => d.name);
     setCategories(loadedCats);
     if (!loadedCats.includes(category)) {
       setCategory(loadedCats[0] || 'Study');
@@ -240,22 +239,41 @@ export function App() {
   };
 
   // Category management handlers
-  const handleAddCategory = (categoryName: string) => {
+  const handleAddCategory = (categoryName: string, color?: string, isProductive?: boolean) => {
     const trimmed = categoryName.trim();
     if (!trimmed || categories.includes(trimmed)) return;
-    const updated = [...categories, trimmed];
-    setCategories(updated);
-    storage.saveCategories(updated);
+    const newDef: CategoryDefinition = {
+      name: trimmed,
+      color: color || '#10B981',
+      isProductive: isProductive !== undefined ? isProductive : true
+    };
+    const updatedDefs = [...categoryDefs, newDef];
+    setCategoryDefs(updatedDefs);
+    setCategories(updatedDefs.map(d => d.name));
+    storage.saveCategoryDefinitions(updatedDefs);
   };
 
   const handleDeleteCategory = (categoryName: string) => {
     if (categories.length <= 1) return;
-    const updated = categories.filter(c => c !== categoryName);
-    setCategories(updated);
-    storage.saveCategories(updated);
+    const updatedDefs = categoryDefs.filter(c => c.name !== categoryName);
+    setCategoryDefs(updatedDefs);
+    const updatedCats = updatedDefs.map(d => d.name);
+    setCategories(updatedCats);
+    storage.saveCategoryDefinitions(updatedDefs);
     if (category === categoryName) {
-      setCategory(updated[0] || 'Study');
+      setCategory(updatedCats[0] || 'Study');
     }
+  };
+
+  const handleToggleCategoryProductivity = (categoryName: string) => {
+    const updatedDefs = categoryDefs.map(c => {
+      if (c.name === categoryName) {
+        return { ...c, isProductive: !c.isProductive };
+      }
+      return c;
+    });
+    setCategoryDefs(updatedDefs);
+    storage.saveCategoryDefinitions(updatedDefs);
   };
 
   // To-do list management handlers
@@ -273,23 +291,13 @@ export function App() {
   };
 
   const handleToggleTodo = (id: string) => {
-    const target = todos.find(t => t.id === id);
-    const willBeCompleted = target ? !target.completed : false;
     const updated = storage.toggleTodo(id);
     setTodos(updated);
-
-    // If marked as completed -> trigger Calla Lily blooming celebration!
-    if (willBeCompleted && target) {
-      setCompletedTaskName(target.title);
-      setIsCallaModalOpen(true);
-    }
   };
 
-  const handleCompleteTodoFromTracker = (todoId: string, taskTitle: string) => {
+  const handleCompleteTodoFromTracker = (todoId: string) => {
     const updated = storage.toggleTodo(todoId);
     setTodos(updated);
-    setCompletedTaskName(taskTitle);
-    setIsCallaModalOpen(true);
   };
 
   const handleDeleteTodo = (id: string) => {
@@ -322,16 +330,30 @@ export function App() {
     storage.deleteSessionFromCloud(id);
   };
 
-  // Calculate today's seconds worked for current active user
+  // Calculate today's seconds worked for current active user (Productive vs Inactive/Rest)
   const todayStartTimestamp = new Date().setHours(0, 0, 0, 0);
   const todayUserSessions = sessions.filter(
     s => s.userId === currentUser.id && s.startTime >= todayStartTimestamp
   );
-  const todaySavedSeconds = todayUserSessions.reduce((acc, s) => acc + s.durationSeconds, 0);
-  const totalTodayLiveSeconds = todaySavedSeconds + activeSeconds;
+  
+  // Categorize sessions by productivity
+  const productiveCategories = new Set(
+    categoryDefs.filter(d => d.isProductive).map(d => d.name.toLowerCase())
+  );
 
-  // Remaining tasks count for current user
-  const remainingTasksCount = todos.filter(t => t.userId === currentUser.id && !t.completed).length;
+  const isCurrentCategoryProductive = productiveCategories.has(category.toLowerCase());
+
+  const todaySavedProductiveSeconds = todayUserSessions
+    .filter(s => productiveCategories.has((s.category || '').toLowerCase()))
+    .reduce((acc, s) => acc + s.durationSeconds, 0);
+
+  const todaySavedRestSeconds = todayUserSessions
+    .filter(s => !productiveCategories.has((s.category || '').toLowerCase()))
+    .reduce((acc, s) => acc + s.durationSeconds, 0);
+
+  const totalProductiveSeconds = todaySavedProductiveSeconds + (isCurrentCategoryProductive ? activeSeconds : 0);
+  const totalRestSeconds = todaySavedRestSeconds + (!isCurrentCategoryProductive ? activeSeconds : 0);
+  const totalTodayLiveSeconds = totalProductiveSeconds + totalRestSeconds;
 
   return (
     <div className="app-container">
@@ -362,9 +384,11 @@ export function App() {
           {activeTab === 'timer' && (
             <div className="timer-tab-view">
               
-              {/* PRIMARY 24-HOUR KPI CARD */}
+              {/* PRIMARY 24-HOUR KPI CARD (SEPARATES PRODUCTIVE FOCUS FROM SLEEP/INACTIVE) */}
               <HoursKpiCard 
                 todaySeconds={totalTodayLiveSeconds}
+                productiveSeconds={totalProductiveSeconds}
+                restSeconds={totalRestSeconds}
                 userName={currentUser.name}
               />
 
@@ -458,6 +482,7 @@ export function App() {
             <AnalysisPage 
               sessions={sessions}
               currentUser={currentUser}
+              categoryDefs={categoryDefs}
             />
           )}
 
@@ -483,8 +508,10 @@ export function App() {
               pomodoroSettings={pomodoroSettings}
               onUpdatePomodoro={handleUpdatePomodoro}
               categories={categories}
+              categoryDefs={categoryDefs}
               onAddCategory={handleAddCategory}
               onDeleteCategory={handleDeleteCategory}
+              onToggleCategoryProductivity={handleToggleCategoryProductivity}
             />
           )}
 
@@ -507,14 +534,6 @@ export function App() {
         </div>
       )}
 
-      {/* CALLA LILY BLOOMING GAMIFICATION MODAL */}
-      <CallaLilyModal
-        isOpen={isCallaModalOpen}
-        onClose={() => setIsCallaModalOpen(false)}
-        taskTitle={completedTaskName}
-        remainingTasksCount={remainingTasksCount}
-        userName={currentUser.name}
-      />
 
       {/* MANUAL MISSED TIME MODAL */}
       <ManualTimeModal

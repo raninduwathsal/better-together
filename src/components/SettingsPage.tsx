@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { UserProfile, PomodoroSettings } from '../types';
+import type { UserProfile, PomodoroSettings, CategoryDefinition } from '../types';
 import { 
   Users, 
   UserPlus, 
@@ -12,7 +12,10 @@ import {
   VolumeX, 
   PlayCircle,
   Tag,
-  Plus
+  Plus,
+  Palette,
+  Moon,
+  Briefcase
 } from 'lucide-react';
 import { playSound } from '../audio';
 import './SettingsPage.css';
@@ -26,8 +29,10 @@ interface SettingsPageProps {
   pomodoroSettings: PomodoroSettings;
   onUpdatePomodoro: (settings: PomodoroSettings) => void;
   categories: string[];
-  onAddCategory: (categoryName: string) => void;
+  categoryDefs?: CategoryDefinition[];
+  onAddCategory: (categoryName: string, color?: string, isProductive?: boolean) => void;
   onDeleteCategory: (categoryName: string) => void;
+  onToggleCategoryProductivity?: (categoryName: string) => void;
 }
 
 const PRESET_AVATAR_COLORS = [
@@ -50,16 +55,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   pomodoroSettings,
   onUpdatePomodoro,
   categories,
+  categoryDefs,
   onAddCategory,
   onDeleteCategory,
+  onToggleCategoryProductivity,
 }) => {
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState('');
   const [selectedColor, setSelectedColor] = useState(PRESET_AVATAR_COLORS[0]);
   const [showAddSuccess, setShowAddSuccess] = useState(false);
 
-  // New category input state
+  // New category input state with color and productivity
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryColor, setNewCategoryColor] = useState('#10B981'); // Default Emerald Green
+  const [newCategoryIsProductive, setNewCategoryIsProductive] = useState(true);
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,8 +85,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const handleCreateCategory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName.trim()) return;
-    onAddCategory(newCategoryName.trim());
+    onAddCategory(newCategoryName.trim(), newCategoryColor, newCategoryIsProductive);
     setNewCategoryName('');
+    setNewCategoryColor('#10B981');
+    setNewCategoryIsProductive(true);
     playSound('complete');
   };
 
@@ -247,17 +258,47 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               Set custom categories for tracking time (defaults: Sleep, Entertainment, Study, Club, Work).
             </p>
 
-            {/* List of current categories */}
+            {/* List of current categories with custom colors and productive/unproductive badges */}
             <div className="categories-manage-chips">
-              {categories.map((cat) => (
-                <div key={cat} className="manage-cat-chip">
-                  <span className="cat-chip-text">{cat}</span>
+              {(categoryDefs && categoryDefs.length > 0 
+                ? categoryDefs 
+                : categories.map(cat => ({
+                    name: cat,
+                    color: '#7C3AED',
+                    isProductive: !['sleep', 'entertainment', 'gaming'].includes(cat.toLowerCase())
+                  }))
+              ).map((catDef) => (
+                <div key={catDef.name} className="manage-cat-chip" style={{ borderColor: catDef.color + '55' }}>
+                  <span className="cat-color-dot" style={{ backgroundColor: catDef.color }} />
+                  <span className="cat-chip-text">{catDef.name}</span>
+                  
+                  {/* Productive vs Unproductive Toggle Button */}
+                  <button
+                    type="button"
+                    className={`cat-prod-badge ${catDef.isProductive ? 'badge-productive' : 'badge-unproductive'}`}
+                    onClick={() => onToggleCategoryProductivity?.(catDef.name)}
+                    title={catDef.isProductive ? 'Productive focus time (click to toggle)' : 'Rest / Inactive time (click to toggle)'}
+                  >
+                    {catDef.isProductive ? (
+                      <>
+                        <Briefcase size={11} />
+                        <span>Productive</span>
+                      </>
+                    ) : (
+                      <>
+                        <Moon size={11} />
+                        <span>Rest/Inactive</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Delete button */}
                   {categories.length > 1 && (
                     <button
                       type="button"
                       className="cat-chip-delete"
-                      onClick={() => onDeleteCategory(cat)}
-                      title={`Remove ${cat}`}
+                      onClick={() => onDeleteCategory(catDef.name)}
+                      title={`Remove ${catDef.name}`}
                     >
                       &times;
                     </button>
@@ -266,18 +307,84 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               ))}
             </div>
 
-            {/* Add Category Input */}
-            <form className="add-category-form" onSubmit={handleCreateCategory}>
-              <input
-                type="text"
-                className="settings-input"
-                placeholder="New Category name (e.g. Gym, Reading, Gaming)..."
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-              />
-              <button type="submit" className="add-category-btn">
+            {/* Add Category Form with Custom Color Picker & Productivity Toggle */}
+            <form className="add-category-form-rich" onSubmit={handleCreateCategory}>
+              <div className="category-form-inputs-row">
+                <input
+                  type="text"
+                  className="settings-input"
+                  placeholder="New Category name (e.g. Gym, Reading, Gaming)..."
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  required
+                />
+
+                {/* Productivity Selector Buttons */}
+                <div className="prod-toggle-group">
+                  <button
+                    type="button"
+                    className={`prod-toggle-btn ${newCategoryIsProductive ? 'active-prod' : ''}`}
+                    onClick={() => setNewCategoryIsProductive(true)}
+                    title="Time logged under this category counts toward productive goals & focus"
+                  >
+                    <Briefcase size={14} />
+                    <span>Productive</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`prod-toggle-btn ${!newCategoryIsProductive ? 'active-rest' : ''}`}
+                    onClick={() => setNewCategoryIsProductive(false)}
+                    title="Time logged under this category counts as rest/sleep/inactive and won't count as study focus"
+                  >
+                    <Moon size={14} />
+                    <span>Rest / Inactive</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Category Color Picker Row */}
+              <div className="category-color-picker-row">
+                <div className="color-picker-label-row">
+                  <Palette size={14} className="text-purple" />
+                  <span className="color-label">Custom Category Color:</span>
+                </div>
+                <div className="category-color-swatches">
+                  {[
+                    '#10B981', // Emerald Green (Study/Growth)
+                    '#3B82F6', // Blue (Work)
+                    '#8B5CF6', // Purple (Club/Activity)
+                    '#6366F1', // Indigo (Sleep/Night)
+                    '#EF4444', // Red/Coral (Entertainment/Break)
+                    '#F59E0B', // Amber (Reading/Hobbies)
+                    '#EC4899', // Pink (Fitness/Health)
+                    '#14B8A6', // Teal
+                    '#F97316', // Orange
+                    '#64748B', // Slate
+                  ].map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      className={`cat-swatch-circle ${newCategoryColor === c ? 'selected-cat-swatch' : ''}`}
+                      style={{ backgroundColor: c }}
+                      onClick={() => setNewCategoryColor(c)}
+                      title={`Select color ${c}`}
+                    />
+                  ))}
+                  <div className="custom-hex-input-wrap">
+                    <input
+                      type="color"
+                      className="html-color-picker"
+                      value={newCategoryColor}
+                      onChange={(e) => setNewCategoryColor(e.target.value)}
+                      title="Pick any custom color"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" className="add-category-rich-btn">
                 <Plus size={16} />
-                <span>Add Type</span>
+                <span>Save & Add Category</span>
               </button>
             </form>
           </div>

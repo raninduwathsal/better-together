@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { TimeSession, UserProfile } from '../types';
+import type { TimeSession, UserProfile, CategoryDefinition } from '../types';
 import { 
   TrendingUp, 
   PieChart as PieIcon, 
@@ -16,15 +16,11 @@ import './AnalysisPage.css';
 interface AnalysisPageProps {
   sessions: TimeSession[];
   currentUser: UserProfile;
+  categoryDefs?: CategoryDefinition[];
 }
 
-// Category Color Palette matching user preference:
-// Study: Green (#10B981)
-// Club: Purple (#8B5CF6 / #7C3AED)
-// Entertainment: Red/Coral (#EF4444)
-// Work: Royal Blue (#3B82F6)
-// Sleep: Indigo (#6366F1)
-export const CATEGORY_COLORS: Record<string, string> = {
+// Fallback Default Category Colors
+export const DEFAULT_CATEGORY_COLORS: Record<string, string> = {
   'Study': '#10B981',         // Green
   'Club': '#8B5CF6',          // Purple
   'Entertainment': '#EF4444', // Red
@@ -34,8 +30,14 @@ export const CATEGORY_COLORS: Record<string, string> = {
   'Other': '#94A3B8',         // Slate
 };
 
-export const getCategoryColor = (category: string): string => {
-  return CATEGORY_COLORS[category] || '#A855F7';
+export const CATEGORY_COLORS = DEFAULT_CATEGORY_COLORS;
+
+export const getCategoryColor = (category: string, customDefs?: CategoryDefinition[]): string => {
+  if (customDefs) {
+    const match = customDefs.find(c => c.name.toLowerCase() === category.toLowerCase());
+    if (match) return match.color;
+  }
+  return DEFAULT_CATEGORY_COLORS[category] || '#A855F7';
 };
 
 interface HourSegment {
@@ -53,7 +55,7 @@ interface HourBucket {
   sessions: TimeSession[];
 }
 
-export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUser }) => {
+export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUser, categoryDefs }) => {
   // Filter sessions for the active user
   const userSessions = useMemo(() => {
     return sessions.filter(s => s.userId === currentUser.id);
@@ -91,12 +93,12 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
         seconds,
         hours,
         percentage,
-        color: getCategoryColor(name)
+        color: getCategoryColor(name, categoryDefs)
       };
     });
 
     return entries.sort((a, b) => b.seconds - a.seconds);
-  }, [userSessions, totalSecondsAllTime]);
+  }, [userSessions, totalSecondsAllTime, categoryDefs]);
 
   // Last 7 days breakdown for bar chart
   const last7DaysData = useMemo(() => {
@@ -182,7 +184,7 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
               buckets[h].segments.push({
                 category: session.category,
                 minutes: overlapMins,
-                color: getCategoryColor(session.category),
+                color: getCategoryColor(session.category, categoryDefs),
                 sessionTitle: session.workingOn
               });
             }
@@ -493,26 +495,15 @@ export const AnalysisPage: React.FC<AnalysisPageProps> = ({ sessions, currentUse
         <div className="drilldown-category-legend">
           <div className="legend-label-title">Categories:</div>
           <div className="legend-chips-list">
-            <span className="legend-tag-pill">
-              <span className="tag-dot" style={{ backgroundColor: CATEGORY_COLORS['Study'] }} />
-              <span>Study ({CATEGORY_COLORS['Study'] === '#10B981' ? 'Green' : ''})</span>
-            </span>
-            <span className="legend-tag-pill">
-              <span className="tag-dot" style={{ backgroundColor: CATEGORY_COLORS['Club'] }} />
-              <span>Club ({CATEGORY_COLORS['Club'] === '#8B5CF6' ? 'Purple' : ''})</span>
-            </span>
-            <span className="legend-tag-pill">
-              <span className="tag-dot" style={{ backgroundColor: CATEGORY_COLORS['Entertainment'] }} />
-              <span>Entertainment ({CATEGORY_COLORS['Entertainment'] === '#EF4444' ? 'Red' : ''})</span>
-            </span>
-            <span className="legend-tag-pill">
-              <span className="tag-dot" style={{ backgroundColor: CATEGORY_COLORS['Work'] }} />
-              <span>Work (Blue)</span>
-            </span>
-            <span className="legend-tag-pill">
-              <span className="tag-dot" style={{ backgroundColor: CATEGORY_COLORS['Sleep'] }} />
-              <span>Sleep (Indigo)</span>
-            </span>
+            {(categoryDefs && categoryDefs.length > 0 
+              ? categoryDefs 
+              : Object.entries(DEFAULT_CATEGORY_COLORS).map(([name, color]) => ({ name, color, isProductive: true }))
+            ).map(cat => (
+              <span key={cat.name} className="legend-tag-pill">
+                <span className="tag-dot" style={{ backgroundColor: cat.color }} />
+                <span>{cat.name} {!cat.isProductive && <small style={{ opacity: 0.7, fontSize: '0.7em' }}>(Rest/Inactive)</small>}</span>
+              </span>
+            ))}
           </div>
         </div>
 

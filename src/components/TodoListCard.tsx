@@ -55,7 +55,7 @@ export const TodoListCard: React.FC<TodoListCardProps> = ({
           <div>
             <h3 className="todo-card-title">Daily Study & Task Plan</h3>
             <p className="todo-card-desc">
-              Tasks auto-suggest into the timer & bloom a Calla Lily upon completion.
+              Tasks auto-suggest directly into the timer to stay focused.
             </p>
           </div>
         </div>

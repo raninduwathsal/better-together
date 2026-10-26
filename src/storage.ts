@@ -1,4 +1,4 @@
-import type { UserProfile, TimeSession, PomodoroSettings, TodoItem, ActiveTimerState } from './types';
+import type { UserProfile, TimeSession, PomodoroSettings, TodoItem, ActiveTimerState, CategoryDefinition } from './types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 const USERS_KEY = 'better_together_users_v3';
@@ -6,15 +6,18 @@ const ACTIVE_USER_ID_KEY = 'better_together_active_user_id_v3';
 const SESSIONS_KEY = 'better_together_sessions_v3';
 const POMODORO_SETTINGS_KEY = 'better_together_pomodoro_settings_v3';
 const CATEGORIES_KEY = 'better_together_categories_v3';
+const CATEGORY_DEFS_KEY = 'better_together_category_defs_v1';
 const TODOS_KEY = 'better_together_todos_v3';
 
-export const DEFAULT_CATEGORIES: string[] = [
-  'Sleep',
-  'Entertainment',
-  'Study',
-  'Club',
-  'Work'
+export const DEFAULT_CATEGORY_DEFS: CategoryDefinition[] = [
+  { name: 'Study', color: '#10B981', isProductive: true },
+  { name: 'Work', color: '#3B82F6', isProductive: true },
+  { name: 'Club', color: '#8B5CF6', isProductive: true },
+  { name: 'Sleep', color: '#6366F1', isProductive: false },
+  { name: 'Entertainment', color: '#EF4444', isProductive: false },
 ];
+
+export const DEFAULT_CATEGORIES: string[] = DEFAULT_CATEGORY_DEFS.map(c => c.name);
 
 export const DEFAULT_USERS: UserProfile[] = [
   {
@@ -103,8 +106,48 @@ export const storage = {
   },
 
   // ---- Category Management ----
+  getCategoryDefinitions: (): CategoryDefinition[] => {
+    try {
+      const data = localStorage.getItem(CATEGORY_DEFS_KEY);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      
+      // Fallback or migration from string categories
+      const legacyCats = storage.getCategories();
+      const migrated: CategoryDefinition[] = legacyCats.map(cat => {
+        const matchedDefault = DEFAULT_CATEGORY_DEFS.find(d => d.name.toLowerCase() === cat.toLowerCase());
+        if (matchedDefault) return matchedDefault;
+        const isProd = !['sleep', 'entertainment', 'gaming', 'break'].includes(cat.toLowerCase());
+        return {
+          name: cat,
+          color: '#7C3AED',
+          isProductive: isProd,
+        };
+      });
+
+      localStorage.setItem(CATEGORY_DEFS_KEY, JSON.stringify(migrated));
+      return migrated;
+    } catch {
+      return DEFAULT_CATEGORY_DEFS;
+    }
+  },
+
+  saveCategoryDefinitions: (defs: CategoryDefinition[]) => {
+    localStorage.setItem(CATEGORY_DEFS_KEY, JSON.stringify(defs));
+    storage.saveCategories(defs.map(d => d.name));
+  },
+
   getCategories: (): string[] => {
     try {
+      const defs = localStorage.getItem(CATEGORY_DEFS_KEY);
+      if (defs) {
+        const parsedDefs = JSON.parse(defs);
+        if (Array.isArray(parsedDefs) && parsedDefs.length > 0) {
+          return parsedDefs.map((d: CategoryDefinition) => d.name);
+        }
+      }
       const data = localStorage.getItem(CATEGORIES_KEY);
       if (!data) {
         localStorage.setItem(CATEGORIES_KEY, JSON.stringify(DEFAULT_CATEGORIES));

@@ -3,18 +3,31 @@ import { Clock, TrendingUp, Zap, Target } from 'lucide-react';
 import './HoursKpiCard.css';
 
 interface HoursKpiCardProps {
-  todaySeconds: number; // total seconds worked today
+  todaySeconds: number; // total logged seconds
+  productiveSeconds?: number; // productive focus seconds (defaults to todaySeconds if not provided)
+  restSeconds?: number; // inactive / rest logged seconds (e.g. sleep, entertainment)
   userName: string;
 }
 
-export const HoursKpiCard: React.FC<HoursKpiCardProps> = ({ todaySeconds, userName }) => {
+export const HoursKpiCard: React.FC<HoursKpiCardProps> = ({ 
+  todaySeconds, 
+  productiveSeconds,
+  restSeconds = 0,
+  userName 
+}) => {
   const TOTAL_HOURS_IN_DAY = 24;
-  const hoursWorked = todaySeconds / 3600;
+  const effectiveProductive = productiveSeconds !== undefined ? productiveSeconds : todaySeconds;
+  const hoursWorked = effectiveProductive / 3600;
   const percentageOfDay = Math.min(100, (hoursWorked / TOTAL_HOURS_IN_DAY) * 100);
   
-  // Format hours and minutes
+  // Format hours and minutes for productive focus
   const wholeHours = Math.floor(hoursWorked);
-  const minutes = Math.floor((todaySeconds % 3600) / 60);
+  const minutes = Math.floor((effectiveProductive % 3600) / 60);
+
+  // Format rest / inactive hours if logged
+  const restHoursWorked = restSeconds / 3600;
+  const restWholeHours = Math.floor(restHoursWorked);
+  const restMinutes = Math.floor((restSeconds % 3600) / 60);
 
   // SVG circular gauge calculations
   const size = 180;
@@ -45,21 +58,37 @@ export const HoursKpiCard: React.FC<HoursKpiCardProps> = ({ todaySeconds, userNa
 
         <div className="kpi-metrics-row">
           <div className="metric-box">
-            <span className="metric-label">Logged Today</span>
+            <span className="metric-label">Productive Focus</span>
             <div className="metric-value-row">
-              <span className="metric-huge">{wholeHours}</span>
+              <span className="metric-huge text-purple">{wholeHours}</span>
               <span className="metric-unit">h</span>
-              <span className="metric-huge" style={{ marginLeft: '6px' }}>{minutes}</span>
+              <span className="metric-huge text-purple" style={{ marginLeft: '6px' }}>{minutes}</span>
               <span className="metric-unit">m</span>
             </div>
           </div>
 
           <div className="metric-divider" />
 
+          {restSeconds > 0 && (
+            <>
+              <div className="metric-box">
+                <span className="metric-label">Rest / Sleep</span>
+                <div className="metric-value-row">
+                  <span className="metric-huge" style={{ color: '#6366F1' }}>{restWholeHours}</span>
+                  <span className="metric-unit">h</span>
+                  <span className="metric-huge" style={{ color: '#6366F1', marginLeft: '6px' }}>{restMinutes}</span>
+                  <span className="metric-unit">m</span>
+                </div>
+              </div>
+
+              <div className="metric-divider" />
+            </>
+          )}
+
           <div className="metric-box">
             <span className="metric-label">Remaining in Day</span>
             <div className="metric-value-row">
-              <span className="metric-huge">{Math.max(0, 24 - wholeHours - (minutes > 0 ? 1 : 0))}</span>
+              <span className="metric-huge">{Math.max(0, 24 - wholeHours - restWholeHours - (minutes > 0 ? 1 : 0))}</span>
               <span className="metric-unit">h left</span>
             </div>
           </div>
@@ -79,7 +108,9 @@ export const HoursKpiCard: React.FC<HoursKpiCardProps> = ({ todaySeconds, userNa
         <div className="kpi-linear-bar-container">
           <div className="kpi-linear-bar-labels">
             <span>00:00 (Start of Day)</span>
-            <span className="kpi-linear-ratio font-mono">{hoursWorked.toFixed(1)}h / 24.0h ({percentageOfDay.toFixed(1)}%)</span>
+            <span className="kpi-linear-ratio font-mono">
+              {hoursWorked.toFixed(1)}h Focus {restSeconds > 0 ? `+ ${restHoursWorked.toFixed(1)}h Rest` : ''} / 24h ({percentageOfDay.toFixed(1)}%)
+            </span>
             <span>24:00 (Midnight)</span>
           </div>
           <div className="kpi-linear-track">
