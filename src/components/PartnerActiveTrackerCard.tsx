@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import type { ActiveTimerState, UserProfile } from '../types';
-import { Radio, Flame, Sparkles, Clock } from 'lucide-react';
+import { Radio, Flame, Sparkles, Clock, Square, ArrowRightLeft } from 'lucide-react';
 import './PartnerActiveTrackerCard.css';
 
 interface PartnerActiveTrackerCardProps {
   activeTimers: ActiveTimerState[];
   currentUserId: string;
   users: UserProfile[];
+  onSwitchToPartner?: (partnerId: string) => void;
+  onStopPartnerTimer?: (partnerId: string) => void;
 }
 
 export const PartnerActiveTrackerCard: React.FC<PartnerActiveTrackerCardProps> = ({
   activeTimers,
   currentUserId,
   users,
+  onSwitchToPartner,
+  onStopPartnerTimer,
 }) => {
   // Tick every second to smoothly animate running partner timer duration
   const [now, setNow] = useState<number>(Date.now());
@@ -106,6 +110,33 @@ export const PartnerActiveTrackerCard: React.FC<PartnerActiveTrackerCardProps> =
                 {partnerTimer.isPomodoro && (
                   <span className="partner-pomo-tag">Pomodoro</span>
                 )}
+
+                {/* Quick actions for partner timer */}
+                <div className="partner-actions-group">
+                  {onSwitchToPartner && (
+                    <button
+                      type="button"
+                      className="partner-switch-btn"
+                      onClick={() => onSwitchToPartner(partnerTimer.userId)}
+                      title={`Switch to ${partnerName}'s profile to control timer`}
+                    >
+                      <ArrowRightLeft size={13} />
+                      <span>Switch to {partnerName.split(' ')[0]}</span>
+                    </button>
+                  )}
+
+                  {onStopPartnerTimer && (
+                    <button
+                      type="button"
+                      className="partner-stop-btn"
+                      onClick={() => onStopPartnerTimer(partnerTimer.userId)}
+                      title={`Stop and save ${partnerName}'s running timer`}
+                    >
+                      <Square size={12} />
+                      <span>Stop</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );

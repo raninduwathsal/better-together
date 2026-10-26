@@ -204,7 +204,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
         category,
         isPomodoroEnabled,
         selectedTodoId,
-      });
+      }, currentUser.id);
 
       storage.syncActiveTimerToCloud({
         userId: currentUser.id,
@@ -226,7 +226,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
         category,
         isPomodoroEnabled,
         selectedTodoId,
-      });
+      }, currentUser.id);
 
       storage.syncActiveTimerToCloud({
         userId: currentUser.id,
@@ -291,7 +291,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
     setActiveSeconds(0);
     setSelectedTodoId(null);
     setShowBreakPrompt(false);
-    storage.clearActiveTimer();
+    storage.clearActiveTimer(currentUser.id);
     storage.clearActiveTimerFromCloud(currentUser.id);
     if (isPomodoroEnabled) {
       setPomodoroMode('work');
@@ -341,7 +341,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
       onCompleteTodo(session.todoId, session.workingOn);
     }
 
-    storage.clearActiveTimer();
+    storage.clearActiveTimer(currentUser.id);
     storage.clearActiveTimerFromCloud(currentUser.id);
     setShowMarkDoneDialog(false);
     setPendingSavedSession(null);

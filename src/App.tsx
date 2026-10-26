@@ -72,8 +72,8 @@ export function App() {
       setCategory(loadedCats[0] || 'Study');
     }
 
-    // 1b. Restore persistent active timer (survives browser refresh, disconnection, navigation)
-    const savedTimer = storage.getActiveTimer();
+    // 1b. Restore persistent active timer for active user (survives refresh, tab close, user switch)
+    const savedTimer = storage.getActiveTimer(savedUserId);
     if (savedTimer) {
       if (savedTimer.workingOn) setWorkingOn(savedTimer.workingOn);
       if (savedTimer.category && loadedCats.includes(savedTimer.category)) {
@@ -206,10 +206,52 @@ export function App() {
     createdAt: Date.now()
   };
 
-  // User management handlers
-  const handleSelectUser = (id: string) => {
-    setActiveUserId(id);
-    storage.setActiveUserId(id);
+  // User management handlers (seamlessly saves previous user's timer and restores target user's timer)
+  const handleSelectUser = (nextUserId: string) => {
+    if (nextUserId === activeUserId) return;
+
+    // 1. Save current user's timer state before switching
+    if (activeUserId) {
+      storage.saveActiveTimer({
+        isRunning,
+        startedAt: isRunning ? Date.now() - (activeSeconds * 1000) : null,
+        accumulatedSeconds: activeSeconds,
+        workingOn,
+        category,
+        isPomodoroEnabled,
+      }, activeUserId);
+    }
+
+    // 2. Switch active user ID
+    setActiveUserId(nextUserId);
+    storage.setActiveUserId(nextUserId);
+
+    // 3. Load target user's saved timer state
+    const savedTimer = storage.getActiveTimer(nextUserId);
+    if (savedTimer) {
+      setWorkingOn(savedTimer.workingOn || '');
+      if (savedTimer.category && categories.includes(savedTimer.category)) {
+        setCategory(savedTimer.category);
+      }
+      setIsPomodoroEnabled(Boolean(savedTimer.isPomodoroEnabled));
+
+      if (savedTimer.isRunning && savedTimer.startedAt) {
+        const elapsedSinceStart = Math.max(0, Math.floor((Date.now() - savedTimer.startedAt) / 1000));
+        const totalRestored = (savedTimer.accumulatedSeconds || 0) + elapsedSinceStart;
+        setActiveSeconds(totalRestored);
+        setIsRunning(true);
+      } else {
+        setActiveSeconds(savedTimer.accumulatedSeconds || 0);
+        setIsRunning(false);
+      }
+    } else {
+      // Clean slate for new user without saved active timer
+      setActiveSeconds(0);
+      setIsRunning(false);
+      setWorkingOn('');
+      setCategory(categories[0] || 'Study');
+      setIsPomodoroEnabled(false);
+    }
   };
 
   const handleAddUser = (name: string, role?: string, color?: string) => {
@@ -330,6 +372,40 @@ export function App() {
     storage.deleteSessionFromCloud(id);
   };
 
+  // Stop another user's running timer directly from the partner card
+  const handleStopPartnerTimer = async (partnerId: string) => {
+    const targetTimer = activeTimers.find(t => t.userId === partnerId);
+    if (!targetTimer) return;
+
+    const partnerProfile = users.find(u => u.id === partnerId);
+    const elapsedSinceStarted = targetTimer.startedAt ? Math.max(0, Math.floor((Date.now() - targetTimer.startedAt) / 1000)) : 0;
+    const duration = (targetTimer.accumulatedSeconds || 0) + elapsedSinceStarted;
+
+    if (duration >= 5) {
+      const newSession: TimeSession = {
+        id: 'sess_' + Date.now(),
+        userId: partnerId,
+        userName: targetTimer.userName || partnerProfile?.name || 'Partner',
+        workingOn: targetTimer.workingOn?.trim() || 'Focus Session',
+        category: targetTimer.category || 'Study',
+        startTime: targetTimer.startedAt || (Date.now() - duration * 1000),
+        endTime: Date.now(),
+        durationSeconds: duration,
+        isPomodoro: targetTimer.isPomodoro,
+      };
+      const updated = storage.addSession(newSession);
+      setSessions(updated);
+      storage.syncSessionToCloud(newSession);
+    }
+
+    storage.clearActiveTimer(partnerId);
+    await storage.clearActiveTimerFromCloud(partnerId);
+
+    // Refresh cloud active timers
+    const refreshed = await storage.fetchCloudActiveTimers();
+    if (refreshed) setActiveTimers(refreshed);
+  };
+
   // Calculate today's seconds worked for current active user (Productive vs Inactive/Rest)
   const todayStartTimestamp = new Date().setHours(0, 0, 0, 0);
   const todayUserSessions = sessions.filter(
@@ -397,6 +473,8 @@ export function App() {
                 activeTimers={activeTimers}
                 currentUserId={currentUser.id}
                 users={users}
+                onSwitchToPartner={handleSelectUser}
+                onStopPartnerTimer={handleStopPartnerTimer}
               />
 
               {/* CORE TIME TRACKER / POMODORO WITH AUTOCOMPLETE & COMPLETION DIALOG */}

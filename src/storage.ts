@@ -247,8 +247,8 @@ export const storage = {
     localStorage.setItem(POMODORO_SETTINGS_KEY, JSON.stringify(settings));
   },
 
-  // ---- ACTIVE TIMER PERSISTENCE (Survives Refresh, Tab Close & Reconnect) ----
-  getActiveTimer: (): {
+  // ---- ACTIVE TIMER PERSISTENCE (Per-User, Survives Refresh, Tab Close, Reconnect & User Switch) ----
+  getActiveTimer: (userId?: string): {
     isRunning: boolean;
     startedAt: number | null; // epoch ms when current run started
     accumulatedSeconds: number; // seconds before current run
@@ -258,7 +258,10 @@ export const storage = {
     selectedTodoId?: string | null;
   } | null => {
     try {
-      const data = localStorage.getItem('better_together_active_timer_v1');
+      const key = userId 
+        ? `better_together_active_timer_user_${userId}` 
+        : 'better_together_active_timer_v1';
+      const data = localStorage.getItem(key) || (userId ? localStorage.getItem('better_together_active_timer_v1') : null);
       if (!data) return null;
       return JSON.parse(data);
     } catch {
@@ -266,19 +269,28 @@ export const storage = {
     }
   },
 
-  saveActiveTimer: (state: {
-    isRunning: boolean;
-    startedAt: number | null;
-    accumulatedSeconds: number;
-    workingOn: string;
-    category: string;
-    isPomodoroEnabled: boolean;
-    selectedTodoId?: string | null;
-  }) => {
-    localStorage.setItem('better_together_active_timer_v1', JSON.stringify(state));
+  saveActiveTimer: (
+    state: {
+      isRunning: boolean;
+      startedAt: number | null;
+      accumulatedSeconds: number;
+      workingOn: string;
+      category: string;
+      isPomodoroEnabled: boolean;
+      selectedTodoId?: string | null;
+    },
+    userId?: string
+  ) => {
+    const key = userId 
+      ? `better_together_active_timer_user_${userId}` 
+      : 'better_together_active_timer_v1';
+    localStorage.setItem(key, JSON.stringify(state));
   },
 
-  clearActiveTimer: () => {
+  clearActiveTimer: (userId?: string) => {
+    if (userId) {
+      localStorage.removeItem(`better_together_active_timer_user_${userId}`);
+    }
     localStorage.removeItem('better_together_active_timer_v1');
   },
 

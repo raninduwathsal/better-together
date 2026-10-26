@@ -264,6 +264,54 @@
   border-radius: var(--radius-full);
 }
 
+.partner-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.partner-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--primary-50);
+  border: 1px solid var(--primary-200);
+  color: var(--primary-700);
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.partner-switch-btn:hover {
+  background: var(--primary-100);
+  border-color: var(--primary-400);
+  transform: translateY(-1px);
+}
+
+.partner-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.partner-stop-btn:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  transform: translateY(-1px);
+}
+
 @media (max-width: 720px) {
   .partner-timer-card {
     flex-direction: column;
