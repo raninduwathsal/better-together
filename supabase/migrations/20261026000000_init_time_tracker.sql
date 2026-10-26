@@ -8,6 +8,11 @@ create table if not exists public.profiles (
 );
 
 alter table public.profiles enable row level security;
+drop policy if exists "Allow public read access on profiles" on public.profiles;
+drop policy if exists "Allow public insert on profiles" on public.profiles;
+drop policy if exists "Allow public update on profiles" on public.profiles;
+drop policy if exists "Allow public delete on profiles" on public.profiles;
+
 create policy "Allow public read access on profiles" on public.profiles for select using (true);
 create policy "Allow public insert on profiles" on public.profiles for insert with check (true);
 create policy "Allow public update on profiles" on public.profiles for update using (true);
@@ -32,6 +37,11 @@ create table if not exists public.todos (
 );
 
 alter table public.todos enable row level security;
+drop policy if exists "Allow public select on todos" on public.todos;
+drop policy if exists "Allow public insert on todos" on public.todos;
+drop policy if exists "Allow public update on todos" on public.todos;
+drop policy if exists "Allow public delete on todos" on public.todos;
+
 create policy "Allow public select on todos" on public.todos for select using (true);
 create policy "Allow public insert on todos" on public.todos for insert with check (true);
 create policy "Allow public update on todos" on public.todos for update using (true);
@@ -55,12 +65,26 @@ create table if not exists public.sessions (
 );
 
 alter table public.sessions enable row level security;
+drop policy if exists "Allow public select on sessions" on public.sessions;
+drop policy if exists "Allow public insert on sessions" on public.sessions;
+drop policy if exists "Allow public update on sessions" on public.sessions;
+drop policy if exists "Allow public delete on sessions" on public.sessions;
+
 create policy "Allow public select on sessions" on public.sessions for select using (true);
 create policy "Allow public insert on sessions" on public.sessions for insert with check (true);
 create policy "Allow public update on sessions" on public.sessions for update using (true);
 create policy "Allow public delete on sessions" on public.sessions for delete using (true);
 
--- Enable real-time for live sync between devices
-alter publication supabase_realtime add table public.sessions;
-alter publication supabase_realtime add table public.profiles;
-alter publication supabase_realtime add table public.todos;
+-- Enable real-time for live sync between devices if not already added
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'sessions') then
+    alter publication supabase_realtime add table public.sessions;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'profiles') then
+    alter publication supabase_realtime add table public.profiles;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'todos') then
+    alter publication supabase_realtime add table public.todos;
+  end if;
+end $$;

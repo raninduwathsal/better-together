@@ -224,7 +224,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
       storage.saveActiveTimer({
         isRunning: true,
         startedAt: sessionStartTimeRef.current,
-        accumulatedSeconds: activeSeconds,
+        accumulatedSeconds: 0,
         workingOn,
         category,
         isPomodoroEnabled,
@@ -241,7 +241,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
         workingOn,
         category,
         startedAt: sessionStartTimeRef.current,
-        accumulatedSeconds: activeSeconds,
+        accumulatedSeconds: 0,
         isRunning: true,
         isPomodoro: isPomodoroEnabled,
         pomodoroMode,
@@ -281,7 +281,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
         updatedAt: Date.now()
       });
     }
-  }, [isRunning, activeSeconds, workingOn, category, isPomodoroEnabled, selectedTodoId, currentUser, pomodoroMode, activePreset, targetDurationSeconds, pomodoroCycleCount]);
+  }, [isRunning, workingOn, category, isPomodoroEnabled, selectedTodoId, currentUser, pomodoroMode, activePreset, targetDurationSeconds, pomodoroCycleCount]);
 
   const handleStartBreakNow = () => {
     setShowBreakPrompt(false);

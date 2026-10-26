@@ -269,8 +269,8 @@ export function App() {
     storage.setActiveUserId(nextUserId);
 
     // 3. Load target user's saved timer state (checking live cloud active timers first so other devices sync!)
-    const cloudTimer = activeTimers.find(t => t.userId === nextUserId && t.isRunning);
-    if (cloudTimer && cloudTimer.startedAt) {
+    const cloudTimer = activeTimers.find(t => t.userId === nextUserId);
+    if (cloudTimer && cloudTimer.isRunning && cloudTimer.startedAt) {
       const elapsedSinceStart = Math.max(0, Math.floor((Date.now() - cloudTimer.startedAt) / 1000));
       const totalRestored = (cloudTimer.accumulatedSeconds || 0) + elapsedSinceStart;
       setWorkingOn(cloudTimer.workingOn || '');
@@ -278,11 +278,9 @@ export function App() {
         setCategory(cloudTimer.category);
       }
       setIsPomodoroEnabled(Boolean(cloudTimer.isPomodoro));
-      if (cloudTimer.pomodoroMode) setPomodoroMode(cloudTimer.pomodoroMode);
-      if (cloudTimer.pomodoroPreset) setActivePreset(cloudTimer.pomodoroPreset);
-      if (typeof cloudTimer.pomodoroCycleCount === 'number') {
-        setPomodoroCycleCount(cloudTimer.pomodoroCycleCount);
-      }
+      setPomodoroMode(cloudTimer.pomodoroMode || 'work');
+      setActivePreset(cloudTimer.pomodoroPreset || 'standard');
+      setPomodoroCycleCount(cloudTimer.pomodoroCycleCount || 0);
       setActiveSeconds(totalRestored);
       setIsRunning(true);
     } else {
@@ -293,11 +291,9 @@ export function App() {
           setCategory(savedTimer.category);
         }
         setIsPomodoroEnabled(Boolean(savedTimer.isPomodoroEnabled));
-        if (savedTimer.pomodoroMode) setPomodoroMode(savedTimer.pomodoroMode);
-        if (savedTimer.pomodoroPreset) setActivePreset(savedTimer.pomodoroPreset);
-        if (typeof savedTimer.pomodoroCycleCount === 'number') {
-          setPomodoroCycleCount(savedTimer.pomodoroCycleCount);
-        }
+        setPomodoroMode(savedTimer.pomodoroMode || 'work');
+        setActivePreset(savedTimer.pomodoroPreset || 'standard');
+        setPomodoroCycleCount(savedTimer.pomodoroCycleCount || 0);
 
         if (savedTimer.isRunning && savedTimer.startedAt) {
           const elapsedSinceStart = Math.max(0, Math.floor((Date.now() - savedTimer.startedAt) / 1000));
@@ -308,6 +304,17 @@ export function App() {
           setActiveSeconds(savedTimer.accumulatedSeconds || 0);
           setIsRunning(false);
         }
+      } else if (cloudTimer && !cloudTimer.isRunning && (cloudTimer.accumulatedSeconds || 0) > 0) {
+        setWorkingOn(cloudTimer.workingOn || '');
+        if (cloudTimer.category && categories.includes(cloudTimer.category)) {
+          setCategory(cloudTimer.category);
+        }
+        setIsPomodoroEnabled(Boolean(cloudTimer.isPomodoro));
+        setPomodoroMode(cloudTimer.pomodoroMode || 'work');
+        setActivePreset(cloudTimer.pomodoroPreset || 'standard');
+        setPomodoroCycleCount(cloudTimer.pomodoroCycleCount || 0);
+        setActiveSeconds(cloudTimer.accumulatedSeconds || 0);
+        setIsRunning(false);
       } else {
         // Clean slate for new user without saved active timer
         setActiveSeconds(0);
