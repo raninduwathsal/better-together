@@ -40,6 +40,15 @@ export const PartnerActiveTrackerCard: React.FC<PartnerActiveTrackerCardProps> =
   const formatDuration = (timer: ActiveTimerState) => {
     const elapsedSinceStarted = timer.startedAt ? Math.max(0, Math.floor((now - timer.startedAt) / 1000)) : 0;
     const totalSecs = (timer.accumulatedSeconds || 0) + elapsedSinceStarted;
+    
+    // If partner is running Pomodoro mode, show countdown remaining time!
+    if (timer.isPomodoro && timer.pomodoroTargetSeconds) {
+      const remainingSecs = Math.max(0, timer.pomodoroTargetSeconds - totalSecs);
+      const minutes = Math.floor(remainingSecs / 60);
+      const seconds = remainingSecs % 60;
+      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
     const hours = Math.floor(totalSecs / 3600);
     const minutes = Math.floor((totalSecs % 3600) / 60);
     const seconds = totalSecs % 60;
@@ -108,7 +117,11 @@ export const PartnerActiveTrackerCard: React.FC<PartnerActiveTrackerCardProps> =
                   </span>
                 </div>
                 {partnerTimer.isPomodoro && (
-                  <span className="partner-pomo-tag">Pomodoro</span>
+                  <span className="partner-pomo-tag">
+                    {partnerTimer.pomodoroMode === 'shortBreak' || partnerTimer.pomodoroMode === 'longBreak'
+                      ? 'Break'
+                      : 'Pomodoro Focus'}
+                  </span>
                 )}
 
                 {/* Quick actions for partner timer */}

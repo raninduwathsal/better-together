@@ -45,6 +45,9 @@ export function App() {
   const [workingOn, setWorkingOn] = useState<string>('');
   const [category, setCategory] = useState<SessionCategory>('Study');
   const [isPomodoroEnabled, setIsPomodoroEnabled] = useState<boolean>(false);
+  const [pomodoroMode, setPomodoroMode] = useState<'work' | 'shortBreak' | 'longBreak'>('work');
+  const [activePreset, setActivePreset] = useState<'standard' | 'longFocus'>('standard');
+  const [pomodoroCycleCount, setPomodoroCycleCount] = useState<number>(0);
 
   // Initialize from storage & sync with Supabase
   useEffect(() => {
@@ -80,6 +83,9 @@ export function App() {
         setCategory(savedTimer.category);
       }
       setIsPomodoroEnabled(Boolean(savedTimer.isPomodoroEnabled));
+      if (savedTimer.pomodoroMode) setPomodoroMode(savedTimer.pomodoroMode);
+      if (savedTimer.pomodoroPreset) setActivePreset(savedTimer.pomodoroPreset);
+      if (typeof savedTimer.pomodoroCycleCount === 'number') setPomodoroCycleCount(savedTimer.pomodoroCycleCount);
 
       if (savedTimer.isRunning && savedTimer.startedAt) {
         // Calculate seconds elapsed while tab/browser was disconnected or closed!
@@ -146,6 +152,11 @@ export function App() {
             if (myCloudTimer.workingOn) setWorkingOn(myCloudTimer.workingOn);
             if (myCloudTimer.category) setCategory(myCloudTimer.category);
             setIsPomodoroEnabled(Boolean(myCloudTimer.isPomodoro));
+            if (myCloudTimer.pomodoroMode) setPomodoroMode(myCloudTimer.pomodoroMode);
+            if (myCloudTimer.pomodoroPreset) setActivePreset(myCloudTimer.pomodoroPreset);
+            if (typeof myCloudTimer.pomodoroCycleCount === 'number') {
+              setPomodoroCycleCount(myCloudTimer.pomodoroCycleCount);
+            }
           }
         }
       });
@@ -160,6 +171,22 @@ export function App() {
             storage.fetchCloudActiveTimers().then(refreshed => {
               if (refreshed) {
                 setActiveTimers(refreshed);
+                // Also check if current user's timer changed from another device
+                const currentUserId = storage.getActiveUserId();
+                const activeLive = refreshed.find(t => t.userId === currentUserId);
+                if (activeLive && activeLive.isRunning && activeLive.startedAt) {
+                  const elapsed = Math.max(0, Math.floor((Date.now() - activeLive.startedAt) / 1000));
+                  setActiveSeconds((activeLive.accumulatedSeconds || 0) + elapsed);
+                  setIsRunning(true);
+                  if (activeLive.workingOn) setWorkingOn(activeLive.workingOn);
+                  if (activeLive.category) setCategory(activeLive.category);
+                  setIsPomodoroEnabled(Boolean(activeLive.isPomodoro));
+                  if (activeLive.pomodoroMode) setPomodoroMode(activeLive.pomodoroMode);
+                  if (activeLive.pomodoroPreset) setActivePreset(activeLive.pomodoroPreset);
+                  if (typeof activeLive.pomodoroCycleCount === 'number') {
+                    setPomodoroCycleCount(activeLive.pomodoroCycleCount);
+                  }
+                }
               }
             });
           }
@@ -231,6 +258,9 @@ export function App() {
         workingOn,
         category,
         isPomodoroEnabled,
+        pomodoroMode,
+        pomodoroPreset: activePreset,
+        pomodoroCycleCount,
       }, activeUserId);
     }
 
@@ -248,6 +278,11 @@ export function App() {
         setCategory(cloudTimer.category);
       }
       setIsPomodoroEnabled(Boolean(cloudTimer.isPomodoro));
+      if (cloudTimer.pomodoroMode) setPomodoroMode(cloudTimer.pomodoroMode);
+      if (cloudTimer.pomodoroPreset) setActivePreset(cloudTimer.pomodoroPreset);
+      if (typeof cloudTimer.pomodoroCycleCount === 'number') {
+        setPomodoroCycleCount(cloudTimer.pomodoroCycleCount);
+      }
       setActiveSeconds(totalRestored);
       setIsRunning(true);
     } else {
@@ -258,6 +293,11 @@ export function App() {
           setCategory(savedTimer.category);
         }
         setIsPomodoroEnabled(Boolean(savedTimer.isPomodoroEnabled));
+        if (savedTimer.pomodoroMode) setPomodoroMode(savedTimer.pomodoroMode);
+        if (savedTimer.pomodoroPreset) setActivePreset(savedTimer.pomodoroPreset);
+        if (typeof savedTimer.pomodoroCycleCount === 'number') {
+          setPomodoroCycleCount(savedTimer.pomodoroCycleCount);
+        }
 
         if (savedTimer.isRunning && savedTimer.startedAt) {
           const elapsedSinceStart = Math.max(0, Math.floor((Date.now() - savedTimer.startedAt) / 1000));
@@ -275,6 +315,9 @@ export function App() {
         setWorkingOn('');
         setCategory(categories[0] || 'Study');
         setIsPomodoroEnabled(false);
+        setPomodoroMode('work');
+        setActivePreset('standard');
+        setPomodoroCycleCount(0);
       }
     }
   };
@@ -521,6 +564,12 @@ export function App() {
                 todos={todos}
                 onCompleteTodo={handleCompleteTodoFromTracker}
                 onOpenManualModal={() => setIsManualModalOpen(true)}
+                pomodoroMode={pomodoroMode}
+                setPomodoroMode={setPomodoroMode}
+                activePreset={activePreset}
+                setActivePreset={setActivePreset}
+                pomodoroCycleCount={pomodoroCycleCount}
+                setPomodoroCycleCount={setPomodoroCycleCount}
               />
 
               {/* HOMEPAGE TO-DO LIST FEATURE */}

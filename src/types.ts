@@ -57,6 +57,10 @@ export interface ActiveTimerState {
   accumulatedSeconds: number; // seconds prior to current run
   isRunning: boolean;
   isPomodoro: boolean;
+  pomodoroMode?: 'work' | 'shortBreak' | 'longBreak';
+  pomodoroPreset?: 'standard' | 'longFocus';
+  pomodoroTargetSeconds?: number;
+  pomodoroCycleCount?: number;
   updatedAt: number;
 }
 

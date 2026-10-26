@@ -46,9 +46,15 @@ interface TimerTrackerProps {
   todos: TodoItem[];
   onCompleteTodo: (todoId: string, taskTitle: string) => void;
   onOpenManualModal: () => void;
+  pomodoroMode: PomodoroMode;
+  setPomodoroMode: React.Dispatch<React.SetStateAction<PomodoroMode>>;
+  activePreset: PomodoroPreset;
+  setActivePreset: React.Dispatch<React.SetStateAction<PomodoroPreset>>;
+  pomodoroCycleCount: number;
+  setPomodoroCycleCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
-type PomodoroMode = 'work' | 'shortBreak' | 'longBreak';
+export type PomodoroMode = 'work' | 'shortBreak' | 'longBreak';
 export type PomodoroPreset = 'standard' | 'longFocus'; // 25/5 or 50/10
 
 export const TimerTracker: React.FC<TimerTrackerProps> = ({
@@ -69,17 +75,23 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
   todos,
   onCompleteTodo,
   onOpenManualModal,
+  pomodoroMode,
+  setPomodoroMode,
+  activePreset,
+  setActivePreset,
+  pomodoroCycleCount,
+  setPomodoroCycleCount,
 }) => {
-  // Preset: Standard (25m Focus / 5m Break) vs Long Focus (50m Focus / 10m Break)
-  const [activePreset, setActivePreset] = useState<PomodoroPreset>('standard');
-  const [pomodoroMode, setPomodoroMode] = useState<PomodoroMode>('work');
-  
   // Current effective minutes based on preset
   const currentWorkMinutes = activePreset === 'longFocus' ? 50 : pomodoroSettings.workMinutes;
   const currentBreakMinutes = activePreset === 'longFocus' ? 10 : pomodoroSettings.shortBreakMinutes;
 
-  const [pomodoroTimeRemaining, setPomodoroTimeRemaining] = useState<number>(currentWorkMinutes * 60);
-  const [pomodoroCycleCount, setPomodoroCycleCount] = useState<number>(0);
+  const targetDurationSeconds = pomodoroMode === 'work' 
+    ? currentWorkMinutes * 60 
+    : pomodoroMode === 'shortBreak' 
+      ? currentBreakMinutes * 60 
+      : pomodoroSettings.longBreakMinutes * 60;
+
   const [sessionNotes, setSessionNotes] = useState<string>('');
 
   // Break prompt modal state: Triggered automatically when focus session reaches 0
@@ -94,8 +106,15 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
   const [showMarkDoneDialog, setShowMarkDoneDialog] = useState<boolean>(false);
   const [pendingSavedSession, setPendingSavedSession] = useState<TimeSession | null>(null);
 
-  const sessionStartTimeRef = useRef<number>(Date.now());
+  const sessionStartTimeRef = useRef<number>(Date.now() - (activeSeconds * 1000));
   const inputContainerRef = useRef<HTMLDivElement>(null);
+
+  // Keep sessionStartTimeRef in sync whenever activeSeconds changes while running or paused
+  useEffect(() => {
+    if (isRunning) {
+      sessionStartTimeRef.current = Date.now() - (activeSeconds * 1000);
+    }
+  }, [isRunning]);
 
   // Pending tasks for current user
   const userPendingTodos = todos.filter(t => t.userId === currentUser.id && !t.completed);
@@ -116,18 +135,9 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  // Sync remaining seconds when stopped or changing preset
-  useEffect(() => {
-    if (!isRunning && isPomodoroEnabled) {
-      if (pomodoroMode === 'work') {
-        setPomodoroTimeRemaining(currentWorkMinutes * 60);
-      } else if (pomodoroMode === 'shortBreak') {
-        setPomodoroTimeRemaining(currentBreakMinutes * 60);
-      } else {
-        setPomodoroTimeRemaining(pomodoroSettings.longBreakMinutes * 60);
-      }
-    }
-  }, [currentWorkMinutes, currentBreakMinutes, pomodoroMode, isPomodoroEnabled, isRunning]);
+  // Dynamic countdown calculation: Directly computed from targetDurationSeconds and activeSeconds!
+  // This guarantees that refreshing the page or connecting from another device/browser will show the exact centralized remaining time!
+  const pomodoroTimeRemaining = Math.max(0, targetDurationSeconds - activeSeconds);
 
   // Main Timer Interval with wall-clock drift correction
   useEffect(() => {
@@ -139,25 +149,19 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
       setActiveSeconds(trueElapsed);
 
       if (isPomodoroEnabled) {
-        if (pomodoroMode === 'work') {
-          const remaining = Math.max(0, currentWorkMinutes * 60 - trueElapsed);
-          setPomodoroTimeRemaining(remaining);
-          if (remaining <= 0) {
-            handlePomodoroIntervalComplete();
-          }
+        if (trueElapsed >= targetDurationSeconds) {
+          handlePomodoroIntervalComplete();
         }
       }
     };
 
     if (isRunning) {
-      // Sync immediately on run state
       syncElapsedTime();
 
       interval = setInterval(() => {
         syncElapsedTime();
       }, 1000);
 
-      // Re-sync immediately when phone unlocks or user switches back to Safari tab
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible') {
           syncElapsedTime();
@@ -176,7 +180,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRunning, isPomodoroEnabled, pomodoroMode, activePreset, currentWorkMinutes]);
+  }, [isRunning, isPomodoroEnabled, targetDurationSeconds]);
 
   // AUTOMATIC STOP AND PROMPT BREAK WHEN FOCUS REACHES 0
   const handlePomodoroIntervalComplete = () => {
@@ -196,21 +200,20 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
 
       // Automatically STOP timer and prompt user to take their well-deserved break!
       setIsRunning(false);
+      setActiveSeconds(0);
       setShowBreakPrompt(true);
 
       const isLongBreak = nextCycle % pomodoroSettings.cyclesBeforeLongBreak === 0;
       if (isLongBreak) {
         setPomodoroMode('longBreak');
-        setPomodoroTimeRemaining(pomodoroSettings.longBreakMinutes * 60);
       } else {
         setPomodoroMode('shortBreak');
-        setPomodoroTimeRemaining(currentBreakMinutes * 60);
       }
     } else {
       // Break interval finished -> prompt back to focus
       playSound('start');
       setPomodoroMode('work');
-      setPomodoroTimeRemaining(currentWorkMinutes * 60);
+      setActiveSeconds(0);
       setIsRunning(false);
     }
   };
@@ -226,6 +229,10 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
         category,
         isPomodoroEnabled,
         selectedTodoId,
+        pomodoroMode,
+        pomodoroPreset: activePreset,
+        pomodoroTargetSeconds: targetDurationSeconds,
+        pomodoroCycleCount,
       }, currentUser.id);
 
       storage.syncActiveTimerToCloud({
@@ -237,6 +244,10 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
         accumulatedSeconds: activeSeconds,
         isRunning: true,
         isPomodoro: isPomodoroEnabled,
+        pomodoroMode,
+        pomodoroPreset: activePreset,
+        pomodoroTargetSeconds: targetDurationSeconds,
+        pomodoroCycleCount,
         updatedAt: Date.now()
       });
     } else if (activeSeconds > 0) {
@@ -248,6 +259,10 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
         category,
         isPomodoroEnabled,
         selectedTodoId,
+        pomodoroMode,
+        pomodoroPreset: activePreset,
+        pomodoroTargetSeconds: targetDurationSeconds,
+        pomodoroCycleCount,
       }, currentUser.id);
 
       storage.syncActiveTimerToCloud({
@@ -259,21 +274,27 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
         accumulatedSeconds: activeSeconds,
         isRunning: false,
         isPomodoro: isPomodoroEnabled,
+        pomodoroMode,
+        pomodoroPreset: activePreset,
+        pomodoroTargetSeconds: targetDurationSeconds,
+        pomodoroCycleCount,
         updatedAt: Date.now()
       });
     }
-  }, [isRunning, activeSeconds, workingOn, category, isPomodoroEnabled, selectedTodoId, currentUser]);
+  }, [isRunning, activeSeconds, workingOn, category, isPomodoroEnabled, selectedTodoId, currentUser, pomodoroMode, activePreset, targetDurationSeconds, pomodoroCycleCount]);
 
   const handleStartBreakNow = () => {
     setShowBreakPrompt(false);
     playSound('start');
+    setActiveSeconds(0);
+    sessionStartTimeRef.current = Date.now();
     setIsRunning(true);
   };
 
   const handleSkipBreak = () => {
     setShowBreakPrompt(false);
     setPomodoroMode('work');
-    setPomodoroTimeRemaining(currentWorkMinutes * 60);
+    setActiveSeconds(0);
     setIsRunning(false);
   };
 
@@ -291,6 +312,10 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
       category,
       isPomodoroEnabled,
       selectedTodoId,
+      pomodoroMode,
+      pomodoroPreset: activePreset,
+      pomodoroTargetSeconds: targetDurationSeconds,
+      pomodoroCycleCount,
     }, currentUser.id);
   };
 
@@ -305,6 +330,10 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
       category,
       isPomodoroEnabled,
       selectedTodoId,
+      pomodoroMode,
+      pomodoroPreset: activePreset,
+      pomodoroTargetSeconds: targetDurationSeconds,
+      pomodoroCycleCount,
     }, currentUser.id);
   };
 
@@ -317,7 +346,6 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
     storage.clearActiveTimerFromCloud(currentUser.id);
     if (isPomodoroEnabled) {
       setPomodoroMode('work');
-      setPomodoroTimeRemaining(currentWorkMinutes * 60);
     }
   };
 
@@ -382,7 +410,6 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
     setPomodoroCycleCount(0);
     if (isPomodoroEnabled) {
       setPomodoroMode('work');
-      setPomodoroTimeRemaining(currentWorkMinutes * 60);
     }
   };
 
@@ -409,10 +436,8 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
 
   const setManualPomodoroMode = (mode: PomodoroMode) => {
     setPomodoroMode(mode);
+    setActiveSeconds(0);
     setIsRunning(false);
-    if (mode === 'work') setPomodoroTimeRemaining(currentWorkMinutes * 60);
-    if (mode === 'shortBreak') setPomodoroTimeRemaining(currentBreakMinutes * 60);
-    if (mode === 'longBreak') setPomodoroTimeRemaining(pomodoroSettings.longBreakMinutes * 60);
   };
 
   const displayedSeconds = isPomodoroEnabled ? pomodoroTimeRemaining : activeSeconds;
@@ -438,7 +463,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
                   setIsRunning(false);
                   if (val) {
                     setPomodoroMode('work');
-                    setPomodoroTimeRemaining(currentWorkMinutes * 60);
+                    setActiveSeconds(0);
                   }
                 }}
                 id="pomodoro-toggle-checkbox"
@@ -456,7 +481,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
                 onClick={() => {
                   setActivePreset('standard');
                   setPomodoroMode('work');
-                  setPomodoroTimeRemaining(25 * 60);
+                  setActiveSeconds(0);
                   setIsRunning(false);
                 }}
               >
@@ -470,7 +495,7 @@ export const TimerTracker: React.FC<TimerTrackerProps> = ({
                 onClick={() => {
                   setActivePreset('longFocus');
                   setPomodoroMode('work');
-                  setPomodoroTimeRemaining(50 * 60);
+                  setActiveSeconds(0);
                   setIsRunning(false);
                 }}
               >

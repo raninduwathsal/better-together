@@ -256,6 +256,10 @@ export const storage = {
     category: string;
     isPomodoroEnabled: boolean;
     selectedTodoId?: string | null;
+    pomodoroMode?: 'work' | 'shortBreak' | 'longBreak';
+    pomodoroPreset?: 'standard' | 'longFocus';
+    pomodoroTargetSeconds?: number;
+    pomodoroCycleCount?: number;
   } | null => {
     try {
       const key = userId 
@@ -278,6 +282,10 @@ export const storage = {
       category: string;
       isPomodoroEnabled: boolean;
       selectedTodoId?: string | null;
+      pomodoroMode?: 'work' | 'shortBreak' | 'longBreak';
+      pomodoroPreset?: 'standard' | 'longFocus';
+      pomodoroTargetSeconds?: number;
+      pomodoroCycleCount?: number;
     },
     userId?: string
   ) => {
@@ -456,6 +464,10 @@ export const storage = {
         accumulated_seconds: activeState.accumulatedSeconds,
         is_running: activeState.isRunning,
         is_pomodoro: activeState.isPomodoro,
+        pomodoro_mode: activeState.pomodoroMode || 'work',
+        pomodoro_preset: activeState.pomodoroPreset || 'standard',
+        pomodoro_target_seconds: activeState.pomodoroTargetSeconds ?? 1500,
+        pomodoro_cycle_count: activeState.pomodoroCycleCount ?? 0,
         updated_at: Date.now()
       });
     } catch (e) {
@@ -486,6 +498,10 @@ export const storage = {
         accumulatedSeconds: Number(d.accumulated_seconds) || 0,
         isRunning: Boolean(d.is_running),
         isPomodoro: Boolean(d.is_pomodoro),
+        pomodoroMode: d.pomodoro_mode as 'work' | 'shortBreak' | 'longBreak' | undefined,
+        pomodoroPreset: d.pomodoro_preset as 'standard' | 'longFocus' | undefined,
+        pomodoroTargetSeconds: d.pomodoro_target_seconds != null ? Number(d.pomodoro_target_seconds) : undefined,
+        pomodoroCycleCount: d.pomodoro_cycle_count != null ? Number(d.pomodoro_cycle_count) : undefined,
         updatedAt: Number(d.updated_at) || Date.now()
       }));
     } catch (e) {
